@@ -1,0 +1,10 @@
+steps:
+  - name: pick_lang
+    llm:
+      model: llama3
+      prompt: "Name a programming language."
+      provider: local
+    output: lang
+
+  - name: say
+    run: echo You chose {{lang}}
