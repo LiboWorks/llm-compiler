@@ -51,6 +51,31 @@ go build -o build/workflows ./build/workflows.go
 LLMC_SUBPROCESS=1 ./build/workflows
 ```
 
+Cloning the repository with submodules
+------------------------------------
+If you (or CI) prefer the repository to bring in the `llama.cpp` submodule automatically, clone with submodules:
+
+```bash
+git clone --recurse-submodules https://github.com/your-org/llm-compiler.git
+# or, if you already cloned without submodules:
+git submodule update --init --recursive
+```
+
+This ensures `third_party/llama.cpp` is populated and ready for the build steps described above.
+
+macOS (Metal) notes
+--------------------
+If you plan to run with Metal (Apple GPUs), build `llama.cpp` on macOS with the Metal backend. The GitHub macOS runner does not include Metal libraries for production inference, but the build step below demonstrates how to compile for Metal on macOS:
+
+```bash
+cd third_party/llama.cpp
+mkdir -p build && cd build
+cmake .. -DLLAMA_BACKEND=metal -DCMAKE_BUILD_TYPE=Release
+cmake --build . --config Release -j$(sysctl -n hw.ncpu)
+```
+
+Be cautious: Metal-backed model execution may require device-specific drivers and enough GPU memory; it is resource-heavy.
+
 Design notes and important behavior
 - By default, in-process model calls are serialized at a low level to avoid ggml/llama C-level concurrency issues (this is safe but serializes generation). Use `LLMC_SUBPROCESS=1` to enable true concurrency via subprocess isolation.
 - The runtime supports both stateless and stateful generation. Currently the built-in `Predict` resets the internal context before each call to avoid sequence-position mismatches when callers issue independent predictions. If you require multi-turn sessions, consider using the lower-level runtime APIs or request an enhancement to expose per-session contexts.
