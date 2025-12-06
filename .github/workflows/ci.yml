@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git pkg-config libpthread-stubs0-dev
+
+      - name: Clone llama.cpp (pinned)
+        run: |
+          git clone --depth 1 --branch v0.1.0 https://github.com/ggerganov/llama.cpp.git third_party/llama.cpp
+
+      - name: Build llama.cpp (CPU backend)
+        run: |
+          mkdir -p third_party/llama.cpp/build
+          cd third_party/llama.cpp/build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DLLAMA_BACKEND=cpu
+          cmake --build . --config Release -j$(nproc)
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Build repository
+        run: |
+          go version
+          go build ./...
+
+      - name: Run tests
+        env:
+          LLMC_SUBPROCESS: "0"
+        run: |
+          go test ./... -v -count=1
+name: CI
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21
+      - name: Install deps and build
+        run: |
+          go version
+          go test ./...
+          go build ./...
