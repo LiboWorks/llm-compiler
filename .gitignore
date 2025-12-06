@@ -1,0 +1,23 @@
+# Ignore generated build outputs
+/build/
+
+# Ignore large model files and generated model artifacts
+/models/
+
+# Ignore third-party directory entirely (users should clone/build locally)
+third_party/
+
+# Binary outputs
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+
+# Editor directories
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
