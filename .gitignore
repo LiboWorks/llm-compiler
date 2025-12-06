@@ -5,7 +5,8 @@
 /models/
 
 # Ignore third-party directory entirely (users should clone/build locally)
-third_party/
+# third_party/ is tracked for submodules; do not ignore the directory entirely.
+# If you want to ignore build artifacts inside third_party, add specific patterns.
 
 # Binary outputs
 *.exe

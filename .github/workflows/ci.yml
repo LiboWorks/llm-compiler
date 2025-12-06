@@ -16,9 +16,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential cmake git pkg-config libpthread-stubs0-dev
 
-      - name: Clone llama.cpp (pinned)
+      - name: Initialize submodules
         run: |
-          git clone --depth 1 --branch v0.1.0 https://github.com/ggerganov/llama.cpp.git third_party/llama.cpp
+          git submodule sync --recursive
+          git submodule update --init --recursive --depth 1
 
       - name: Build llama.cpp (CPU backend)
         run: |
@@ -42,20 +43,3 @@ jobs:
           LLMC_SUBPROCESS: "0"
         run: |
           go test ./... -v -count=1
-name: CI
-on: [push, pull_request]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: 1.21
-      - name: Install deps and build
-        run: |
-          go version
-          go test ./...
-          go build ./...
