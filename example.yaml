@@ -1,10 +1,51 @@
+---
+---
+# Workflow A: alpha
+name: alpha
 steps:
-  - name: pick_lang
-    llm:
-      model: llama3
-      prompt: "Name a programming language."
-      provider: local
-    output: lang
+  - name: gen_alpha
+    type: local_llm
+    model: meta-llama-3-8b-instruct.Q4_K_M.gguf
+    prompt: "Produce a one-line short identifier for alpha"
+    max_tokens: 16
+    output: alpha_first
 
-  - name: say
-    run: echo You chose {{lang}}
+  - name: combine_alpha
+    type: local_llm
+    # This step needs the output from beta.combine_beta (the other workflow's second step)
+    wait_for: "beta.combine_beta"
+    wait_timeout: 15
+    model: meta-llama-3-8b-instruct.Q4_K_M.gguf
+    prompt: |
+      You are Alpha. Combine your earlier result {{ index . "alpha_first" }} with
+      the external input {{ index . "beta.combine_beta" }} and produce a single-line
+      combined identifier.
+    max_tokens: 32
+    output: alpha_final
+
+---
+# Workflow B: beta
+name: beta
+steps:
+  - name: gen_beta
+    type: local_llm
+    model: meta-llama-3-8b-instruct.Q4_K_M.gguf
+    prompt: "Produce a one-line short identifier for beta"
+    max_tokens: 16
+    output: beta_first
+
+  - name: combine_beta
+    type: local_llm
+    # This step runs independently and produces a value that alpha will wait for
+    model: meta-llama-3-8b-instruct.Q4_K_M.gguf
+    prompt: |
+      You are Beta. Based on your earlier result {{ index . "beta_first" }}, produce
+      a single-line finalized identifier.
+    max_tokens: 32
+    output: beta_final
+
+# Notes:
+# - Both first steps are `local_llm` so two local models run concurrently.
+# - Alpha's `combine_alpha` waits for Beta's `combine_beta` via `wait_for: "beta.combine_beta"`.
+# - The waiting value is stored in the consumer's context under the key "beta.combine_beta",
+#   and can be referenced in templates using the index form as shown above.

@@ -109,5 +109,3 @@ CI and integration tests
 How to contribute
 - Open issues for bugs and feature requests.
 - For large changes (e.g., introducing a worker pool or session APIs), open a draft PR and discuss design before implementation.
-
-If you want, I can (A) remove generated files in the repo tree now (I can only modify files I can safely delete), or (B) run the integration test with subprocess workers and capture logs. Tell me which and I'll proceed.

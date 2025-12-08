@@ -1,4 +1,4 @@
-module github.com/libochen/llm-compiler
+module github.com/LiboWorks/llm-compiler
 
 go 1.25.2
 

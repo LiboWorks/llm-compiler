@@ -1,0 +1,29 @@
+name: Pro Build (template)
+on: [workflow_dispatch]
+
+# This is a template/workflow example for building Pro-enabled binaries.
+# It requires access to the private repo and appropriate credentials.
+
+jobs:
+  build-pro:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # if your private repo is in the same org you can checkout with token
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21
+      - name: Configure GOPRIVATE
+        run: |
+          echo "Configuring GOPRIVATE for private modules"
+          git config --global url."git@github.com:".insteadOf "https://github.com/"
+          go env -w GOPRIVATE=github.com/libochen/llm-compiler-pro
+      - name: Build pro binary
+        env:
+          LLMC_PRO_LICENSE: ${{ secrets.LLMC_PRO_LICENSE }}
+        run: |
+          # The private repo must be accessible; this workflow is a starting point
+          go build -tags pro ./...

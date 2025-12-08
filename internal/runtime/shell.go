@@ -12,7 +12,7 @@ func NewShellRuntime() *ShellRuntime {
 }
 
 func (s *ShellRuntime) Run(command string) (string, error) {
-    // Use `sh -c` so full shell syntax works
+	// Use `sh -c` so full shell syntax works
 	cmd := exec.Command("sh", "-c", command)
 	output, err := cmd.CombinedOutput()
 	return string(output), err

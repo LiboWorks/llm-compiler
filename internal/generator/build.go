@@ -8,9 +8,11 @@ import (
 func BuildGoFile(sourcePath string) error {
 	outputPath := sourcePath[:len(sourcePath)-3] // remove .go
 	cmd := exec.Command("go", "build", "-o", outputPath, sourcePath)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
 
 	fmt.Printf("🔨 Building %s...\n", outputPath)
-	return cmd.Run()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("build error: %v\n%s", err, string(out))
+	}
+	return nil
 }

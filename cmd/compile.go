@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/libochen/llm-compiler/internal/generator"
-	"github.com/libochen/llm-compiler/internal/workflow"
+	"github.com/LiboWorks/llm-compiler/internal/generator"
+	"github.com/LiboWorks/llm-compiler/internal/workflow"
 	"github.com/spf13/cobra"
 )
 
@@ -31,22 +31,23 @@ var compileCmd = &cobra.Command{
 		fmt.Printf("✅ Workflow file: %s\n", workflowFile)
 		fmt.Printf("📦 Output target folder: %s\n", output)
 
-		// Load workflow
-		wf, err := workflow.LoadWorkflow(workflowFile)
+		// Load workflow(s)
+		wfs, err := workflow.LoadWorkflows(workflowFile)
 		if err != nil {
 			fmt.Printf("❌ Failed to parse workflow: %v\n", err)
 			os.Exit(1)
 		}
+		for _, wf := range wfs {
+			fmt.Printf("📋 Workflow loaded: %s\n", wf.Name)
+			fmt.Printf("🧩 Steps: %d\n", len(wf.Steps))
 
-		fmt.Printf("📋 Workflow loaded: %s\n", wf.Name)
-		fmt.Printf("🧩 Steps: %d\n", len(wf.Steps))
-
-		// Validate workflow
-		if err := wf.Validate(); err != nil {
-			fmt.Printf("❌ Validation error: %v\n", err)
-			os.Exit(1)
+			// Validate workflow
+			if err := wf.Validate(); err != nil {
+				fmt.Printf("❌ Validation error in %s: %v\n", wf.Name, err)
+				os.Exit(1)
+			}
+			fmt.Println("✅ Workflow validated")
 		}
-		fmt.Println("✅ Workflow validated")
 
 		// Ensure output folder exists
 		if err := os.MkdirAll(output, 0755); err != nil {
@@ -54,16 +55,32 @@ var compileCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// Generate code
-		program, err := generator.Generate(*wf)
+		// Clean up previous generated files for these workflows to avoid duplicate
+		// main packages when building the repo. We remove files that match
+		// the pattern <workflowName>_*.go in the output folder for each workflow.
+		for _, wf := range wfs {
+			pattern := filepath.Join(output, fmt.Sprintf("%s_*.go", wf.Name))
+			if matches, _ := filepath.Glob(pattern); len(matches) > 0 {
+				for _, f := range matches {
+					_ = os.Remove(f)
+				}
+			}
+		}
+
+		// Generate code for all workflows together
+		program, err := generator.Generate(wfs)
 		if err != nil {
 			fmt.Printf("❌ Code generation failed: %v\n", err)
 			os.Exit(1)
 		}
 
-		// Timestamped output file
+		// Timestamped output file (use first workflow name as prefix)
 		timestamp := time.Now().Format("20060102_150405")
-		outputFile := filepath.Join(output, fmt.Sprintf("%s_%s.go", wf.Name, timestamp))
+		prefix := "workflows"
+		if len(wfs) == 1 {
+			prefix = wfs[0].Name
+		}
+		outputFile := filepath.Join(output, fmt.Sprintf("%s_%s.go", prefix, timestamp))
 
 		if err := generator.SaveToFile(outputFile, program); err != nil {
 			fmt.Printf("❌ Failed to save generated file: %v\n", err)

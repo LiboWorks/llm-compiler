@@ -1,20 +1,42 @@
 package workflow
 
 import (
-    "io/ioutil"
-    "gopkg.in/yaml.v3"
+	"bytes"
+	"fmt"
+	"gopkg.in/yaml.v3"
+	"io"
+	"io/ioutil"
 )
 
-func LoadWorkflow(path string) (*Workflow, error) {
-    data, err := ioutil.ReadFile(path)
-    if err != nil {
-        return nil, err
-    }
+// LoadWorkflows loads one or more workflows from a YAML file. Supports files
+// containing multiple YAML documents separated by `---`. Empty documents are
+// ignored. Returns
+// parsed workflows.
+func LoadWorkflows(path string) ([]Workflow, error) {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
 
-    var wf Workflow
-    if err := yaml.Unmarshal(data, &wf); err != nil {
-        return nil, err
-    }
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	var wfs []Workflow
+	for {
+		var wf Workflow
+		if err := dec.Decode(&wf); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		// skip completely empty docs
+		if wf.Name == "" && len(wf.Steps) == 0 {
+			continue
+		}
+		wfs = append(wfs, wf)
+	}
 
-    return &wf, nil
+	if len(wfs) == 0 {
+		return nil, fmt.Errorf("no workflows found in %s", path)
+	}
+	return wfs, nil
 }
