@@ -4,7 +4,7 @@ package main
 
 import (
 	"github.com/LiboWorks/llm-compiler/cmd"
-	_ "github.com/libochen/llm-compiler-pro/register"
+	_ "github.com/LiboWorks/llm-compiler-pro/register"
 )
 
 func main() {

@@ -1,0 +1,19 @@
+---
+# Producer workflow
+name: producer
+steps:
+  - name: produce
+    type: shell
+    command: 'echo "hello-from-producer"'
+    output: produced_value
+
+---
+# Consumer workflow that waits for producer
+name: consumer
+steps:
+  - name: wait_for_producer
+    type: shell
+    wait_for: producer.produce
+    wait_timeout: 10
+    command: 'echo "consumer got: {{producer.produce}}"'
+    output: consumed_value

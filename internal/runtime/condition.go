@@ -19,7 +19,7 @@ func EvalCondition(ctx interface{ Get(string) string }, condition string) bool {
 		// Extract variable in {{ }}
 		if strings.HasPrefix(left, "{{") && strings.HasSuffix(left, "}}") {
 			varName := strings.TrimSpace(left[2 : len(left)-2])
-			leftVal := ctx.Get(varName)
+			leftVal := strings.TrimSpace(ctx.Get(varName))
 
 			// Remove quotes from right side
 			rightVal := strings.Trim(right, `"'`)

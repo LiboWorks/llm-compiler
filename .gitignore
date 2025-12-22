@@ -1,9 +1,6 @@
 # Ignore generated build outputs
 /build/
 
-# Ignore large model files and generated model artifacts
-/models/
-
 # Ignore third-party directory entirely (users should clone/build locally)
 # third_party/ is tracked for submodules; do not ignore the directory entirely.
 # If you want to ignore build artifacts inside third_party, add specific patterns.
@@ -22,3 +19,31 @@
 
 # macOS
 .DS_Store
+
+# Generated test outputs
+testdata/output/
+
+# Local model files (large binaries should not be committed)
+*.gguf
+*.bin
+
+# Runtime artefacts and logs
+*.log
+contexts_and_signals.json
+fmt_output.txt
+llama_output.txt
+
+# Go build outputs
+bin/
+pkg/
+
+# Environment files
+.env
+.env.local
+
+# Coverage
+coverage.out
+
+# Editor/temp files
+*.swp
+.cache/

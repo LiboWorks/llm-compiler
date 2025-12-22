@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/LiboWorks/llm-compiler/internal/llama"
+	"github.com/LiboWorks/llm-compiler/internal/worker"
 )
 
 // LocalLlamaRuntime manages loaded models (cached) and generation.
@@ -15,7 +15,7 @@ type LocalLlamaRuntime struct {
 	mu     sync.Mutex
 	models map[string]*llama.Model // model handle from binding
 	// Optional worker client for subprocess-backed generation
-	worker *workerClient
+	workerClient *worker.Client
 	// default options; kept simple for the internal wrapper
 	// (previously used external binding's ModelOptions)
 	// opts field removed because the internal wrapper uses PredictOptions per-call
@@ -32,10 +32,10 @@ func NewLocalLlamaRuntime() *LocalLlamaRuntime {
 	}
 
 	// If environment opts into subprocess mode, start a worker client.
-	if os.Getenv("LLMC_SUBPROCESS") == "1" {
-		wc, err := newWorkerClient()
+	if worker.ShouldUseSubprocess() {
+		wc, err := worker.NewClient()
 		if err == nil {
-			r.worker = wc
+			r.workerClient = wc
 		} else {
 			// if worker fails, fall back to in-process and surface debug to stderr
 			fmt.Fprintf(os.Stderr, "failed to start worker client: %v\n", err)
@@ -66,37 +66,15 @@ func (r *LocalLlamaRuntime) LoadModel(filePath string) (*llama.Model, error) {
 }
 
 // Generate runs the model with prompt and returns the completion text.
-// modelSpec expected to be "file:/absolute/or/relative/path.gguf" OR logical name mapped to path.
 // maxTokens controls the number of tokens to generate (0 = use default inside runtime).
-func (r *LocalLlamaRuntime) Generate(prompt string, modelSpec string, maxTokens int) (string, error) {
-	// Determine path
-	var modelPath string
-	if strings.HasPrefix(modelSpec, "file:") {
-		modelPath = strings.TrimPrefix(modelSpec, "file:")
-	} else {
-		// If modelSpec already looks like a path or already contains the .gguf
-		// extension, avoid appending another .gguf.
-		if strings.HasPrefix(modelSpec, "/") || strings.HasPrefix(modelSpec, "./") || strings.HasPrefix(modelSpec, "../") {
-			modelPath = modelSpec
-			if !strings.HasSuffix(modelPath, ".gguf") {
-				modelPath = modelPath + ".gguf"
-			}
-		} else if strings.HasSuffix(modelSpec, ".gguf") {
-			// logical name that already includes extension
-			modelPath = "./models/" + modelSpec
-		} else {
-			// fallback: logical name without extension
-			modelPath = "./models/" + modelSpec + ".gguf"
-		}
-	}
-
+func (r *LocalLlamaRuntime) Generate(prompt string, modelPath string, maxTokens int) (string, error) {
 	model, err := r.LoadModel(modelPath)
 	if err != nil {
 		return "", err
 	}
 	// If worker client is configured, use it for true concurrency.
-	if r.worker != nil {
-		return r.worker.sendRequest(modelPath, prompt, maxTokens)
+	if r.workerClient != nil {
+		return r.workerClient.SendRequest(modelPath, prompt, maxTokens)
 	}
 
 	// Call the wrapper's Predict API (in-process). Use provided maxTokens if non-zero, otherwise fall back to 256

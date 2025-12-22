@@ -1,0 +1,13 @@
+---
+# Test error handling - command that fails
+name: error_test
+steps:
+  - name: will_fail
+    type: shell
+    command: 'exit 1'
+    output: fail_result
+
+  - name: after_fail
+    type: shell
+    command: 'echo "should not reach here"'
+    output: after_result

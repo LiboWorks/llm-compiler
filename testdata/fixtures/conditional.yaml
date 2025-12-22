@@ -1,0 +1,20 @@
+---
+# Test conditional execution
+name: conditional_test
+steps:
+  - name: set_flag
+    type: shell
+    command: 'echo "yes"'
+    output: flag
+
+  - name: conditional_step
+    type: shell
+    if: "{{flag}} == 'yes'"
+    command: 'echo "condition matched"'
+    output: conditional_result
+
+  - name: negative_condition
+    type: shell
+    if: "{{flag}} == 'no'"
+    command: 'echo "should not run"'
+    output: negative_result

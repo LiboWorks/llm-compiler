@@ -5,7 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
+	
 	"github.com/LiboWorks/llm-compiler/internal/workflow"
 )
 
@@ -15,17 +15,39 @@ import (
 func Generate(wfs []workflow.Workflow) (string, error) {
 	var sb strings.Builder
 
-	// Header
+	// Pre-scan to determine which imports are needed
+	needLog := false
+	for _, wf := range wfs {
+		for _, step := range wf.Steps {
+			if step.WaitFor != "" {
+				needLog = true
+				break
+			}
+		}
+		if needLog {
+			break
+		}
+	}
+
+	// Header with conditional imports
 	sb.WriteString(`package main
 
 import (
 	"fmt"
-	"log"
-	"sync"
+	"io"
+	"os"
+	"syscall"
+	"path/filepath"
+`)
+	if needLog {
+		sb.WriteString(`	"log"
+`)
+	}
+	sb.WriteString(`	"sync"
 	"time"
-		"os"
-		"encoding/json"
+	"encoding/json"
 
+	"github.com/LiboWorks/llm-compiler/internal/config"
 	"github.com/LiboWorks/llm-compiler/internal/runtime"
 )
 
@@ -68,6 +90,81 @@ func main() {
 
 	var wg sync.WaitGroup
 
+	// create files next to the executable: one for Go fmt output, one for native C output
+	cfg := config.Get()
+	exe, _ := os.Executable()
+	exeDir := filepath.Dir(exe)
+	fmtOutPath := filepath.Join(exeDir, cfg.FmtOutputFile)
+	llamaOutPath := filepath.Join(exeDir, cfg.LlamaOutputFile)
+	// Truncate existing files on program start so this run starts fresh.
+	fmtFile, _ := os.OpenFile(fmtOutPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	llamaFile, _ := os.OpenFile(llamaOutPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	// Duplicate the fmt file descriptor to fd 3 so subprocess workers can
+	// write their fmt/log messages directly to fd 3 (no extra pipes needed).
+	_ = syscall.Dup2(int(fmtFile.Fd()), 3)
+	// write a small run header to mark the run
+	header := fmt.Sprintf("=== RUN START: %s pid=%d ===\n", time.Now().Format(time.RFC3339), os.Getpid())
+	_, _ = fmtFile.WriteString(header)
+	_ = fmtFile.Sync()
+	_, _ = llamaFile.WriteString(header)
+	_ = llamaFile.Sync()
+
+	// save original terminal fds so we can continue to write to the terminal
+	savedStdoutFd, _ := syscall.Dup(int(os.Stdout.Fd()))
+	savedStderrFd, _ := syscall.Dup(int(os.Stderr.Fd()))
+	savedStdout := os.NewFile(uintptr(savedStdoutFd), "saved_stdout")
+	savedStderr := os.NewFile(uintptr(savedStderrFd), "saved_stderr")
+
+	// --- Go-level output capture: replace os.Stdout/os.Stderr with pipe writers
+	rGoOut, wGoOut, _ := os.Pipe()
+	rGoErr, wGoErr, _ := os.Pipe()
+	os.Stdout = wGoOut
+	os.Stderr = wGoErr
+
+	// copy Go-level output into (terminal + fmtFile)
+	go func() {
+		defer rGoOut.Close()
+		io.Copy(io.MultiWriter(savedStdout, fmtFile), rGoOut)
+	}()
+	go func() {
+		defer rGoErr.Close()
+		io.Copy(io.MultiWriter(savedStderr, fmtFile), rGoErr)
+	}()
+
+	// --- Native-level output capture: redirect fd 1/2 to separate pipes
+	rCOut, wCOut, _ := os.Pipe()
+	rCErr, wCErr, _ := os.Pipe()
+	_ = syscall.Dup2(int(wCOut.Fd()), 1)
+	_ = syscall.Dup2(int(wCErr.Fd()), 2)
+
+	// copy native-level output into (terminal + llamaFile)
+	go func() {
+		defer rCOut.Close()
+		io.Copy(io.MultiWriter(savedStdout, llamaFile), rCOut)
+	}()
+	go func() {
+		defer rCErr.Close()
+		io.Copy(io.MultiWriter(savedStderr, llamaFile), rCErr)
+	}()
+
+	// restore and close on exit
+	defer func() {
+		// restore original fds
+		_ = syscall.Dup2(savedStdoutFd, int(os.Stdout.Fd()))
+		_ = syscall.Dup2(savedStderrFd, int(os.Stderr.Fd()))
+		// close pipe writers (this will end the readers)
+		wGoOut.Close()
+		wGoErr.Close()
+		wCOut.Close()
+		wCErr.Close()
+		// flush and close files
+		fmtFile.Sync()
+		fmtFile.Close()
+		llamaFile.Sync()
+		llamaFile.Close()
+		savedStdout.Close()
+		savedStderr.Close()
+	}()
 `)
 
 	// Determine which runtimes are required by the workflows.
@@ -138,6 +235,9 @@ func main() {
 			sb.WriteString("        var out string\n")
 			sb.WriteString("        var err error\n")
 		}
+		if hasShell {
+			sb.WriteString("        var cmd string\n")
+		}
 		sb.WriteString("\n")
 		if hasLocal {
 			sb.WriteString("        localLlama := runtime.NewLocalLlamaRuntime()\n")
@@ -176,7 +276,7 @@ func main() {
 
 			// Shell steps
 			if step.Type == "shell" || step.Command != "" {
-				sb.WriteString(fmt.Sprintf("            cmd, _ := runtime.RenderTemplate(%q, ctx.Vars)\n", step.Command))
+				sb.WriteString(fmt.Sprintf("            cmd, _ = runtime.RenderTemplate(%q, ctx.Vars)\n", step.Command))
 				if step.Output != "" {
 					sb.WriteString("            out, err = shell.Run(cmd)\n")
 					sb.WriteString("            if err != nil {\n")
@@ -266,8 +366,10 @@ func main() {
 	sb.WriteString("    signalsMu.Unlock()\n")
 	sb.WriteString("    dump[\"channels\"] = chans\n")
 	sb.WriteString("    b, _ := json.MarshalIndent(dump, \"\", \"  \")\n")
-	sb.WriteString("    _ = os.MkdirAll(\"build/integration_test_outputs\", 0755)\n")
-	sb.WriteString("    _ = os.WriteFile(\"build/integration_test_outputs/contexts_and_signals.json\", b, 0644)\n")
+	sb.WriteString("    exe, _ = os.Executable()\n")
+	sb.WriteString("    exeDir = filepath.Dir(exe)\n")
+	sb.WriteString("    outPath := filepath.Join(exeDir, \"contexts_and_signals.json\")\n")
+	sb.WriteString("    _ = os.WriteFile(outPath, b, 0644)\n")
 	sb.WriteString("    fmt.Println(\"\\n✅ Workflows completed\")\n")
 	sb.WriteString("}\n")
 

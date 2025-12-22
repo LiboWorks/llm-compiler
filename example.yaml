@@ -1,51 +1,112 @@
+# =============================================================================
+# llm-compiler Example Workflow
+# =============================================================================
+# This example demonstrates all features:
+#   - Shell command execution
+#   - Template variable substitution with {{variable}}
+#   - Conditional execution with 'if'
+#   - Multiple parallel workflows
+#   - Cross-workflow communication with 'wait_for'
+#   - Local LLM inference (optional, requires GGUF model)
+#
+# Usage:
+#   go run main.go compile example.yaml -o ./build
+#   ./build/workflows
+# =============================================================================
+
 ---
----
-# Workflow A: alpha
-name: alpha
+# Workflow 1: Producer
+# Runs shell commands and produces data for other workflows
+name: producer
 steps:
-  - name: gen_alpha
-    type: local_llm
-    model: meta-llama-3-8b-instruct.Q4_K_M.gguf
-    prompt: "Produce a one-line short identifier for alpha"
-    max_tokens: 16
-    output: alpha_first
+  - name: generate_data
+    type: shell
+    command: 'echo "Hello from Producer"'
+    output: message
 
-  - name: combine_alpha
+  - name: check_status
+    type: shell
+    command: 'echo "ready"'
+    output: status
+
+  - name: final_output
+    type: shell
+    # Template substitution: {{variable}} gets replaced with step output
+    command: 'echo "Producer says: {{message}} | Status: {{status}}"'
+    output: producer_result
+  # Optional LLM step: set `model` to a GGUF path to enable
+  - name: prod_summarize
     type: local_llm
-    # This step needs the output from beta.combine_beta (the other workflow's second step)
-    wait_for: "beta.combine_beta"
-    wait_timeout: 15
-    model: meta-llama-3-8b-instruct.Q4_K_M.gguf
+    model: /path/to/your/model.gguf
     prompt: |
-      You are Alpha. Combine your earlier result {{ index . "alpha_first" }} with
-      the external input {{ index . "beta.combine_beta" }} and produce a single-line
-      combined identifier.
+      Summarize the following producer result in one short line:
+      {{producer_result}}
     max_tokens: 32
-    output: alpha_final
+    output: producer_summary
 
 ---
-# Workflow B: beta
-name: beta
+# Workflow 2: Consumer
+# Waits for producer, demonstrates cross-workflow communication
+name: consumer
 steps:
-  - name: gen_beta
-    type: local_llm
-    model: meta-llama-3-8b-instruct.Q4_K_M.gguf
-    prompt: "Produce a one-line short identifier for beta"
-    max_tokens: 16
-    output: beta_first
+  - name: wait_for_producer
+    type: shell
+    # wait_for: pauses until the specified step completes
+    # Format: "workflow_name.step_name"
+    wait_for: producer.final_output
+    wait_timeout: 10
+    # The producer's output is available as {{producer.final_output}}
+    command: 'echo "Consumer received: {{producer.final_output}}"'
+    output: received_data
 
-  - name: combine_beta
+  - name: process_data
+    type: shell
+    command: 'echo "Processed: {{received_data}}"'
+    output: consumer_result
+  # Optional LLM step for consumer insight
+  - name: consumer_insight
     type: local_llm
-    # This step runs independently and produces a value that alpha will wait for
-    model: meta-llama-3-8b-instruct.Q4_K_M.gguf
-    prompt: |
-      You are Beta. Based on your earlier result {{ index . "beta_first" }}, produce
-      a single-line finalized identifier.
+    model: /path/to/your/model.gguf
+    prompt: 'Provide a one-line insight based on: {{consumer_result}}'
     max_tokens: 32
-    output: beta_final
+    output: consumer_insight
 
-# Notes:
-# - Both first steps are `local_llm` so two local models run concurrently.
-# - Alpha's `combine_alpha` waits for Beta's `combine_beta` via `wait_for: "beta.combine_beta"`.
-# - The waiting value is stored in the consumer's context under the key "beta.combine_beta",
-#   and can be referenced in templates using the index form as shown above.
+---
+# Workflow 3: Conditional
+# Demonstrates conditional step execution with 'if'
+name: conditional
+steps:
+  - name: set_mode
+    type: shell
+    command: 'echo "production"'
+    output: mode
+
+  - name: production_action
+    type: shell
+    # 'if' condition: step only runs when condition is true
+    # Compares trimmed values, so newlines from echo are handled
+    if: "{{mode}} == 'production'"
+    command: 'echo "Running in PRODUCTION mode"'
+    output: action_result
+
+  - name: debug_action
+    type: shell
+    # This step will be skipped because mode != 'debug'
+    if: "{{mode}} == 'debug'"
+    command: 'echo "Running in DEBUG mode"'
+    output: debug_result
+
+  - name: summary
+    type: shell
+    command: 'echo "Mode={{mode}} Action={{action_result}}"'
+    output: summary
+
+  # Optional conditional workflow LLM note
+  - name: generate_note
+    type: local_llm
+    model: /path/to/your/model.gguf
+    prompt: |
+      Write a very short note about the run:
+      Mode={{mode}}; Action={{action_result}}
+    max_tokens: 32
+    output: note

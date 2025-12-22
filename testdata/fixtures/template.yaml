@@ -1,0 +1,18 @@
+---
+# Test template rendering with variables
+name: template_test
+steps:
+  - name: set_name
+    type: shell
+    command: 'echo "Alice"'
+    output: name
+
+  - name: set_greeting
+    type: shell
+    command: 'echo "Hello"'
+    output: greeting
+
+  - name: combine
+    type: shell
+    command: 'echo "{{greeting}}, {{name}}!"'
+    output: message

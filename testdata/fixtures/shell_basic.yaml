@@ -1,0 +1,13 @@
+---
+# Basic shell workflow for testing shell execution
+name: shell_basic
+steps:
+  - name: echo_hello
+    type: shell
+    command: 'echo "hello world"'
+    output: hello_result
+
+  - name: echo_with_var
+    type: shell
+    command: 'echo "received: {{hello_result}}"'
+    output: final_result

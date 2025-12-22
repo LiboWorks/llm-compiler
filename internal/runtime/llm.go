@@ -3,8 +3,8 @@ package runtime
 import (
 	"context"
 	"fmt"
-	"os"
 
+	"github.com/LiboWorks/llm-compiler/internal/config"
 	openai "github.com/sashabaranov/go-openai"
 )
 
@@ -13,7 +13,8 @@ type LLMRuntime struct {
 }
 
 func NewLLMRuntime() *LLMRuntime {
-	apiKey := os.Getenv("OPENAI_API_KEY")
+	cfg := config.Get()
+	apiKey := cfg.OpenAIAPIKey
 	if apiKey == "" {
 		fmt.Println("⚠️ OPENAI_API_KEY not set, LLM won't work")
 	}
