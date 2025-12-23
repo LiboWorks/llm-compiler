@@ -3,7 +3,12 @@ package llama
 /*
 #cgo CFLAGS: -I${SRCDIR}/../../third_party/llama.cpp/include -I${SRCDIR}/../../third_party/llama.cpp/src -I${SRCDIR}/../../third_party/llama.cpp/ggml/include
 #cgo CXXFLAGS: -std=c++17 -I${SRCDIR}/../../third_party/llama.cpp -I${SRCDIR}/../../third_party/llama.cpp/include -I${SRCDIR}/../../third_party/llama.cpp/ggml/include
-#cgo LDFLAGS: ${SRCDIR}/../../third_party/llama.cpp/build/src/libllama.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/libggml-base.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/libggml-cpu.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/libggml.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/ggml-blas/libggml-blas.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/ggml-metal/libggml-metal.a -lm -framework Accelerate -framework Metal -framework Foundation
+
+#cgo darwin LDFLAGS: ${SRCDIR}/../../third_party/llama.cpp/build/src/libllama.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/libggml-base.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/libggml-cpu.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/libggml.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/ggml-blas/libggml-blas.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/ggml-metal/libggml-metal.a -lm -framework Accelerate -framework Metal -framework Foundation
+
+#cgo linux LDFLAGS: ${SRCDIR}/../../third_party/llama.cpp/build/src/libllama.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/libggml-base.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/libggml-cpu.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/libggml.a -lm -lpthread -ldl
+
+#cgo windows LDFLAGS: -L${SRCDIR}/../../third_party/llama.cpp/build/src -L${SRCDIR}/../../third_party/llama.cpp/build/ggml/src -lllama -lggml-base -lggml-cpu -lggml -lm
 
 #include "llama_wrapper.h"
 #include <stdlib.h>

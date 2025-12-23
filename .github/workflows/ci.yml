@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  ubuntu-cpu:
     name: Ubuntu (CPU) build
     runs-on: ubuntu-latest
     steps:
@@ -26,7 +26,10 @@ jobs:
         run: |
           mkdir -p third_party/llama.cpp/build
           cd third_party/llama.cpp/build
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DLLAMA_BACKEND=cpu
+          cmake .. -DCMAKE_BUILD_TYPE=Release \
+            -DGGML_METAL=OFF \
+            -DGGML_BLAS=OFF \
+            -DLLAMA_CURL=OFF
           cmake --build . --config Release -j$(nproc)
 
       - name: Set up Go
@@ -63,8 +66,52 @@ jobs:
         run: |
           mkdir -p third_party/llama.cpp/build
           cd third_party/llama.cpp/build
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DLLAMA_BACKEND=metal
+          cmake .. -DCMAKE_BUILD_TYPE=Release \
+            -DGGML_METAL=ON \
+            -DGGML_BLAS=ON \
+            -DGGML_BLAS_VENDOR=Apple
           cmake --build . --config Release -j$(sysctl -n hw.ncpu)
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Build repository
+        run: |
+          go version
+          go build ./...
+
+      - name: Run tests
+        env:
+          LLMC_SUBPROCESS: "0"
+        run: |
+          go test ./... -v -count=1
+
+  windows-cpu:
+    name: Windows (CPU) build
+    runs-on: windows-latest
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Initialize submodules
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive
+
+      - name: Build llama.cpp (CPU backend)
+        run: |
+          mkdir -p third_party/llama.cpp/build
+          cd third_party/llama.cpp/build
+          cmake .. -DCMAKE_BUILD_TYPE=Release `
+            -DGGML_METAL=OFF `
+            -DGGML_BLAS=OFF `
+            -DLLAMA_CURL=OFF
+          cmake --build . --config Release -j $env:NUMBER_OF_PROCESSORS
+        shell: pwsh
 
       - name: Set up Go
         uses: actions/setup-go@v4
