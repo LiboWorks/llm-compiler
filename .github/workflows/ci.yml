@@ -27,6 +27,7 @@ jobs:
           mkdir -p third_party/llama.cpp/build
           cd third_party/llama.cpp/build
           cmake .. -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
             -DGGML_METAL=OFF \
             -DGGML_BLAS=OFF \
             -DLLAMA_CURL=OFF
@@ -75,6 +76,7 @@ jobs:
           mkdir -p third_party/llama.cpp/build
           cd third_party/llama.cpp/build
           cmake .. -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
             -DGGML_METAL=ON \
             -DGGML_BLAS=ON \
             -DGGML_BLAS_VENDOR=Apple
@@ -123,6 +125,7 @@ jobs:
           mkdir -p third_party/llama.cpp/build
           cd third_party/llama.cpp/build
           cmake .. -DCMAKE_BUILD_TYPE=Release `
+            -DBUILD_SHARED_LIBS=OFF `
             -DGGML_METAL=OFF `
             -DGGML_BLAS=OFF `
             -DLLAMA_CURL=OFF
