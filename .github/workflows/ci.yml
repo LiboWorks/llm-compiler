@@ -6,6 +6,7 @@ on:
 
 jobs:
   build:
+    name: Ubuntu (CPU) build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -14,7 +15,7 @@ jobs:
       - name: Install build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake git pkg-config libpthread-stubs0-dev
+          sudo apt-get install -y build-essential cmake git pkg-config libpthread-stubs0-dev libcurl4-openssl-dev
 
       - name: Initialize submodules
         run: |
@@ -45,18 +46,13 @@ jobs:
           go test ./... -v -count=1
 
   macos-metal:
-    name: macOS (Metal) build
+    name: MacOS (Metal) build
     runs-on: macos-latest
     steps:
       - name: Checkout (with submodules)
         uses: actions/checkout@v4
         with:
           submodules: 'recursive'
-
-      - name: Install Homebrew dependencies
-        run: |
-          brew update || true
-          brew install cmake
 
       - name: Initialize submodules
         run: |
@@ -79,3 +75,9 @@ jobs:
         run: |
           go version
           go build ./...
+
+      - name: Run tests
+        env:
+          LLMC_SUBPROCESS: "0"
+        run: |
+          go test ./... -v -count=1
