@@ -50,17 +50,9 @@ func NewTestRunner(t *testing.T) (*TestRunner, error) {
 		return nil, fmt.Errorf("failed to find repo root: %w", err)
 	}
 
-	// Create a unique output directory for this test to avoid parallel conflicts
-	baseOutputDir := filepath.Join(repoRoot, "testdata", "output")
-	uniqueOutputDir := filepath.Join(baseOutputDir, fmt.Sprintf("run_%d", time.Now().UnixNano()))
-	if err := os.MkdirAll(uniqueOutputDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create output dir: %w", err)
-	}
-
-	// Clean up the unique directory when test completes
-	t.Cleanup(func() {
-		os.RemoveAll(uniqueOutputDir)
-	})
+	// Use t.TempDir() for guaranteed unique, isolated output directory per test
+	// This is automatically cleaned up when the test completes
+	uniqueOutputDir := t.TempDir()
 
 	return &TestRunner{
 		RepoRoot:    repoRoot,

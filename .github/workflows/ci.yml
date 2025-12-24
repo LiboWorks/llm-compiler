@@ -122,11 +122,17 @@ jobs:
       - name: Debug - List built libraries
         run: |
           echo "=== All library files in llama.cpp/build ==="
-          Get-ChildItem -Path third_party/llama.cpp/build -Recurse -Include *.a,*.lib | Select-Object FullName
-          echo "=== src directory ==="
-          Get-ChildItem -Path third_party/llama.cpp/build/src -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
-          echo "=== ggml/src directory ==="
-          Get-ChildItem -Path third_party/llama.cpp/build/ggml/src -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+          Get-ChildItem -Path third_party/llama.cpp/build -Recurse -Include *.a,*.lib -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+          echo "=== Checking expected paths ==="
+          $paths = @(
+            "third_party/llama.cpp/build/src/libllama.a",
+            "third_party/llama.cpp/build/ggml/src/libggml.a",
+            "third_party/llama.cpp/build/ggml/src/libggml-cpu.a",
+            "third_party/llama.cpp/build/ggml/src/libggml-base.a"
+          )
+          foreach ($p in $paths) {
+            if (Test-Path $p) { echo "EXISTS: $p" } else { echo "MISSING: $p" }
+          }
         shell: pwsh
 
       - name: Set up Go
