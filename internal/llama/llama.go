@@ -8,7 +8,7 @@ package llama
 
 #cgo linux LDFLAGS: ${SRCDIR}/../../third_party/llama.cpp/build/src/libllama.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/libggml.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/libggml-cpu.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/libggml-base.a -lm -lpthread -ldl -lstdc++ -lgomp
 
-#cgo windows LDFLAGS: ${SRCDIR}/../../third_party/llama.cpp/build/src/libllama.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/libggml.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/libggml-cpu.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/libggml-base.a -lstdc++ -static
+#cgo windows LDFLAGS: ${SRCDIR}/../../third_party/llama.cpp/build/src/libllama.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/ggml.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/ggml-cpu.a ${SRCDIR}/../../third_party/llama.cpp/build/ggml/src/ggml-base.a -lstdc++ -static
 
 #include "llama_wrapper.h"
 #include <stdlib.h>

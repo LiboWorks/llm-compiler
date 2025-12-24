@@ -3,6 +3,8 @@ package testing
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -50,9 +52,20 @@ func NewTestRunner(t *testing.T) (*TestRunner, error) {
 		return nil, fmt.Errorf("failed to find repo root: %w", err)
 	}
 
-	// Use t.TempDir() for guaranteed unique, isolated output directory per test
-	// This is automatically cleaned up when the test completes
-	uniqueOutputDir := t.TempDir()
+	// Create a unique output directory within the repo to allow internal package imports
+	// Using timestamp + random bytes for uniqueness even with parallel tests
+	baseOutputDir := filepath.Join(repoRoot, "testdata", "output")
+	randBytes := make([]byte, 8)
+	rand.Read(randBytes)
+	uniqueOutputDir := filepath.Join(baseOutputDir, fmt.Sprintf("run_%d_%s", time.Now().UnixNano(), hex.EncodeToString(randBytes)))
+	if err := os.MkdirAll(uniqueOutputDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create output dir: %w", err)
+	}
+
+	// Clean up when test completes
+	t.Cleanup(func() {
+		os.RemoveAll(uniqueOutputDir)
+	})
 
 	return &TestRunner{
 		RepoRoot:    repoRoot,
