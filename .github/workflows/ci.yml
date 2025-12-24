@@ -117,6 +117,16 @@ jobs:
           cmake --build . --config Release -j $env:NUMBER_OF_PROCESSORS
         shell: pwsh
 
+      - name: Debug - List built libraries
+        run: |
+          echo "=== All library files in llama.cpp/build ==="
+          Get-ChildItem -Path third_party/llama.cpp/build -Recurse -Include *.a,*.lib | Select-Object FullName
+          echo "=== src directory ==="
+          Get-ChildItem -Path third_party/llama.cpp/build/src -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+          echo "=== ggml/src directory ==="
+          Get-ChildItem -Path third_party/llama.cpp/build/ggml/src -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+        shell: pwsh
+
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
