@@ -37,6 +37,8 @@ func TestCrossWorkflowCommunication(t *testing.T) {
 	}
 
 	fixture := runner.GetFixture("cross_workflow")
+	// Use unique name to avoid conflicts with parallel tests
+	fixture.Name = fmt.Sprintf("cross_workflow_%d", time.Now().UnixNano())
 	result, err := runner.CompileAndRun(fixture, 30*time.Second)
 	if err != nil {
 		t.Fatalf("CompileAndRun failed: %v", err)
@@ -66,6 +68,8 @@ func TestTemplateRendering(t *testing.T) {
 	}
 
 	fixture := runner.GetFixture("template")
+	// Use unique name to avoid conflicts with parallel tests
+	fixture.Name = fmt.Sprintf("template_%d", time.Now().UnixNano())
 	result, err := runner.CompileAndRun(fixture, 30*time.Second)
 	if err != nil {
 		t.Fatalf("CompileAndRun failed: %v", err)
@@ -95,6 +99,8 @@ func TestParallelWorkflows(t *testing.T) {
 	}
 
 	fixture := runner.GetFixture("parallel")
+	// Use unique name to avoid conflicts with parallel tests
+	fixture.Name = fmt.Sprintf("parallel_%d", time.Now().UnixNano())
 	result, err := runner.CompileAndRun(fixture, 30*time.Second)
 	if err != nil {
 		t.Fatalf("CompileAndRun failed: %v", err)

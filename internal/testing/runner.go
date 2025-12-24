@@ -200,8 +200,10 @@ func (r *TestRunner) RunWorkflow(binaryPath string, timeout time.Duration, env .
 
 	start := time.Now()
 
+	// Run binary from its own directory so output files are written there
+	binDir := filepath.Dir(binaryPath)
 	cmd := exec.CommandContext(ctx, binaryPath)
-	cmd.Dir = r.RepoRoot
+	cmd.Dir = binDir
 	cmd.Env = append(os.Environ(), env...)
 
 	// Capture both stdout and stderr
@@ -227,7 +229,6 @@ func (r *TestRunner) RunWorkflow(binaryPath string, timeout time.Duration, env .
 	}
 
 	// Load contexts and signals
-	binDir := filepath.Dir(binaryPath)
 	jsonPath := filepath.Join(binDir, "contexts_and_signals.json")
 	if data, err := os.ReadFile(jsonPath); err == nil {
 		var dump map[string]interface{}

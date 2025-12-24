@@ -109,10 +109,11 @@ jobs:
         run: |
           mkdir -p third_party/llama.cpp/build
           cd third_party/llama.cpp/build
-          cmake .. -DCMAKE_BUILD_TYPE=Release `
+          cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release `
             -DBUILD_SHARED_LIBS=OFF `
             -DGGML_METAL=OFF `
             -DGGML_BLAS=OFF `
+            -DGGML_OPENMP=OFF `
             -DLLAMA_CURL=OFF
           cmake --build . --config Release -j $env:NUMBER_OF_PROCESSORS
         shell: pwsh
