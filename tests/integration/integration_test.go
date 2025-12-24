@@ -1,22 +1,12 @@
 package integration
 
 import (
-	"fmt"
-	"math/rand"
 	"strings"
 	"testing"
 	"time"
 
 	llmctesting "github.com/LiboWorks/llm-compiler/internal/testing"
 )
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
-func uniqueName(base string) string {
-	return fmt.Sprintf("%s_%d_%d", base, time.Now().UnixNano(), rand.Intn(1000000))
-}
 
 func TestShellBasicWorkflow(t *testing.T) {
 	runner, err := llmctesting.NewTestRunner(t)
@@ -25,7 +15,6 @@ func TestShellBasicWorkflow(t *testing.T) {
 	}
 
 	fixture := runner.GetFixture("shell_basic")
-	fixture.Name = uniqueName("shell_basic")
 	result, err := runner.CompileAndRun(fixture, 30*time.Second)
 	if err != nil {
 		t.Fatalf("CompileAndRun failed: %v", err)
@@ -45,7 +34,6 @@ func TestCrossWorkflowCommunication(t *testing.T) {
 	}
 
 	fixture := runner.GetFixture("cross_workflow")
-	fixture.Name = uniqueName("cross_workflow")
 	result, err := runner.CompileAndRun(fixture, 30*time.Second)
 	if err != nil {
 		t.Fatalf("CompileAndRun failed: %v", err)
@@ -75,7 +63,6 @@ func TestTemplateRendering(t *testing.T) {
 	}
 
 	fixture := runner.GetFixture("template")
-	fixture.Name = uniqueName("template")
 	result, err := runner.CompileAndRun(fixture, 30*time.Second)
 	if err != nil {
 		t.Fatalf("CompileAndRun failed: %v", err)
@@ -105,7 +92,6 @@ func TestParallelWorkflows(t *testing.T) {
 	}
 
 	fixture := runner.GetFixture("parallel")
-	fixture.Name = uniqueName("parallel")
 	result, err := runner.CompileAndRun(fixture, 30*time.Second)
 	if err != nil {
 		t.Fatalf("CompileAndRun failed: %v", err)
@@ -135,7 +121,6 @@ func TestConditionalExecution(t *testing.T) {
 	}
 
 	fixture := runner.GetFixture("conditional")
-	fixture.Name = uniqueName("conditional")
 	result, err := runner.CompileAndRun(fixture, 30*time.Second)
 	if err != nil {
 		t.Fatalf("CompileAndRun failed: %v", err)

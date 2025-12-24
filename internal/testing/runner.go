@@ -40,7 +40,7 @@ type TestRunner struct {
 	t           *testing.T
 }
 
-// NewTestRunner creates a new test runner
+// NewTestRunner creates a new test runner with isolated output directory
 func NewTestRunner(t *testing.T) (*TestRunner, error) {
 	t.Helper()
 
@@ -50,10 +50,22 @@ func NewTestRunner(t *testing.T) (*TestRunner, error) {
 		return nil, fmt.Errorf("failed to find repo root: %w", err)
 	}
 
+	// Create a unique output directory for this test to avoid parallel conflicts
+	baseOutputDir := filepath.Join(repoRoot, "testdata", "output")
+	uniqueOutputDir := filepath.Join(baseOutputDir, fmt.Sprintf("run_%d", time.Now().UnixNano()))
+	if err := os.MkdirAll(uniqueOutputDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create output dir: %w", err)
+	}
+
+	// Clean up the unique directory when test completes
+	t.Cleanup(func() {
+		os.RemoveAll(uniqueOutputDir)
+	})
+
 	return &TestRunner{
 		RepoRoot:    repoRoot,
 		FixturesDir: filepath.Join(repoRoot, "testdata", "fixtures"),
-		OutputDir:   filepath.Join(repoRoot, "testdata", "output"),
+		OutputDir:   uniqueOutputDir,
 		t:           t,
 	}, nil
 }
