@@ -33,14 +33,6 @@ jobs:
             -DLLAMA_CURL=OFF
           cmake --build . --config Release -j$(nproc)
 
-      - name: Debug - List built libraries
-        run: |
-          echo "=== All .a files in llama.cpp/build ==="
-          find third_party/llama.cpp/build -name "*.a" -o -name "*.so" 2>/dev/null || true
-          echo "=== Directory structure ==="
-          ls -la third_party/llama.cpp/build/src/ || true
-          ls -la third_party/llama.cpp/build/ggml/src/ || true
-
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
@@ -82,18 +74,11 @@ jobs:
             -DGGML_BLAS_VENDOR=Apple
           cmake --build . --config Release -j$(sysctl -n hw.ncpu)
 
-      - name: Debug - List built libraries
-        run: |
-          echo "=== All .a files in llama.cpp/build ==="
-          find third_party/llama.cpp/build -name "*.a" -o -name "*.dylib" 2>/dev/null || true
-          echo "=== Directory structure ==="
-          ls -la third_party/llama.cpp/build/src/ || true
-          ls -la third_party/llama.cpp/build/ggml/src/ || true
-
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: '1.21'
+          cache: false
 
       - name: Build repository
         run: |
