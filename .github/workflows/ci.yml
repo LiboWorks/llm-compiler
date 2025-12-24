@@ -114,7 +114,10 @@ jobs:
             -DGGML_METAL=OFF `
             -DGGML_BLAS=OFF `
             -DGGML_OPENMP=OFF `
-            -DLLAMA_CURL=OFF
+            -DLLAMA_CURL=OFF `
+            -DLLAMA_BUILD_TESTS=OFF `
+            -DLLAMA_BUILD_EXAMPLES=OFF `
+            -DLLAMA_BUILD_SERVER=OFF
           cmake --build . --config Release -j $env:NUMBER_OF_PROCESSORS
         shell: pwsh
 
