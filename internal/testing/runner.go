@@ -204,18 +204,23 @@ func (r *TestRunner) RunWorkflow(binaryPath string, timeout time.Duration, env .
 	cmd.Dir = r.RepoRoot
 	cmd.Env = append(os.Environ(), env...)
 
-	stdout, err := cmd.Output()
+	// Capture both stdout and stderr
+	var stdoutBuf, stderrBuf strings.Builder
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+
+	err := cmd.Run()
 	duration := time.Since(start)
 
 	result := &TestResult{
-		Stdout:   string(stdout),
+		Stdout:   stdoutBuf.String(),
+		Stderr:   stderrBuf.String(),
 		Duration: duration,
 	}
 
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			result.ExitCode = exitErr.ExitCode()
-			result.Stderr = string(exitErr.Stderr)
 		} else {
 			return nil, err
 		}
@@ -304,7 +309,7 @@ func (a *Assertions) Completed() *Assertions {
 	a.t.Helper()
 	if !strings.Contains(a.result.Stdout, "Workflows completed") &&
 		!strings.Contains(a.result.Stdout, "✅ Workflows completed") {
-		a.t.Errorf("workflow did not complete successfully, stdout:\n%s", a.result.Stdout)
+		a.t.Errorf("workflow did not complete successfully, stdout:\n%s\nstderr:\n%s", a.result.Stdout, a.result.Stderr)
 	}
 	return a
 }

@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,8 @@ func TestShellBasicWorkflow(t *testing.T) {
 	}
 
 	fixture := runner.GetFixture("shell_basic")
+	// Use unique name to avoid conflicts with parallel tests
+	fixture.Name = fmt.Sprintf("shell_basic_%d", time.Now().UnixNano())
 	result, err := runner.CompileAndRun(fixture, 30*time.Second)
 	if err != nil {
 		t.Fatalf("CompileAndRun failed: %v", err)
@@ -121,6 +124,8 @@ func TestConditionalExecution(t *testing.T) {
 	}
 
 	fixture := runner.GetFixture("conditional")
+	// Use unique name to avoid conflicts with parallel tests
+	fixture.Name = fmt.Sprintf("conditional_%d", time.Now().UnixNano())
 	result, err := runner.CompileAndRun(fixture, 30*time.Second)
 	if err != nil {
 		t.Fatalf("CompileAndRun failed: %v", err)
