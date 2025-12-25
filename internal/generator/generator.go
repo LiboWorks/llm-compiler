@@ -34,20 +34,17 @@ func Generate(wfs []workflow.Workflow) (string, error) {
 
 import (
 	"fmt"
-	"io"
 	"os"
-	"syscall"
-	"path/filepath"
 `)
 	if needLog {
 		sb.WriteString(`	"log"
+	"time"
 `)
 	}
 	sb.WriteString(`	"sync"
-	"time"
 	"encoding/json"
+	"path/filepath"
 
-	"github.com/LiboWorks/llm-compiler/internal/config"
 	"github.com/LiboWorks/llm-compiler/internal/runtime"
 )
 
@@ -90,81 +87,18 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	// create files next to the executable: one for Go fmt output, one for native C output
-	cfg := config.Get()
-	exe, _ := os.Executable()
-	exeDir := filepath.Dir(exe)
-	fmtOutPath := filepath.Join(exeDir, cfg.FmtOutputFile)
-	llamaOutPath := filepath.Join(exeDir, cfg.LlamaOutputFile)
-	// Truncate existing files on program start so this run starts fresh.
-	fmtFile, _ := os.OpenFile(fmtOutPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	llamaFile, _ := os.OpenFile(llamaOutPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	// Duplicate the fmt file descriptor to fd 3 so subprocess workers can
-	// write their fmt/log messages directly to fd 3 (no extra pipes needed).
-	_ = syscall.Dup2(int(fmtFile.Fd()), 3)
-	// write a small run header to mark the run
-	header := fmt.Sprintf("=== RUN START: %s pid=%d ===\n", time.Now().Format(time.RFC3339), os.Getpid())
-	_, _ = fmtFile.WriteString(header)
-	_ = fmtFile.Sync()
-	_, _ = llamaFile.WriteString(header)
-	_ = llamaFile.Sync()
-
-	// save original terminal fds so we can continue to write to the terminal
-	savedStdoutFd, _ := syscall.Dup(int(os.Stdout.Fd()))
-	savedStderrFd, _ := syscall.Dup(int(os.Stderr.Fd()))
-	savedStdout := os.NewFile(uintptr(savedStdoutFd), "saved_stdout")
-	savedStderr := os.NewFile(uintptr(savedStderrFd), "saved_stderr")
-
-	// --- Go-level output capture: replace os.Stdout/os.Stderr with pipe writers
-	rGoOut, wGoOut, _ := os.Pipe()
-	rGoErr, wGoErr, _ := os.Pipe()
-	os.Stdout = wGoOut
-	os.Stderr = wGoErr
-
-	// copy Go-level output into (terminal + fmtFile)
-	go func() {
-		defer rGoOut.Close()
-		io.Copy(io.MultiWriter(savedStdout, fmtFile), rGoOut)
-	}()
-	go func() {
-		defer rGoErr.Close()
-		io.Copy(io.MultiWriter(savedStderr, fmtFile), rGoErr)
-	}()
-
-	// --- Native-level output capture: redirect fd 1/2 to separate pipes
-	rCOut, wCOut, _ := os.Pipe()
-	rCErr, wCErr, _ := os.Pipe()
-	_ = syscall.Dup2(int(wCOut.Fd()), 1)
-	_ = syscall.Dup2(int(wCErr.Fd()), 2)
-
-	// copy native-level output into (terminal + llamaFile)
-	go func() {
-		defer rCOut.Close()
-		io.Copy(io.MultiWriter(savedStdout, llamaFile), rCOut)
-	}()
-	go func() {
-		defer rCErr.Close()
-		io.Copy(io.MultiWriter(savedStderr, llamaFile), rCErr)
-	}()
-
-	// restore and close on exit
-	defer func() {
-		// restore original fds
-		_ = syscall.Dup2(savedStdoutFd, int(os.Stdout.Fd()))
-		_ = syscall.Dup2(savedStderrFd, int(os.Stderr.Fd()))
-		// close pipe writers (this will end the readers)
-		wGoOut.Close()
-		wGoErr.Close()
-		wCOut.Close()
-		wCErr.Close()
-		// flush and close files
-		fmtFile.Sync()
-		fmtFile.Close()
-		llamaFile.Sync()
-		llamaFile.Close()
-		savedStdout.Close()
-		savedStderr.Close()
-	}()
+	// Set up output capture (platform-aware)
+	capture := runtime.NewOutputCapture()
+	savedStdout, savedStderr, err := capture.Start()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to set up output capture: %v\n", err)
+		savedStdout = os.Stdout
+		savedStderr = os.Stderr
+	}
+	defer capture.Stop()
+	// Use savedStdout/savedStderr to avoid unused variable warnings
+	_ = savedStdout
+	_ = savedStderr
 `)
 
 	// Determine which runtimes are required by the workflows.
@@ -196,10 +130,25 @@ func main() {
 	if needLLM {
 		sb.WriteString("    llm := runtime.NewLLMRuntime()\n")
 	}
-	// NOTE: do not create a shared `localLlama` here. `local_llm` runtimes
-	// (backed by llama.cpp) are not guaranteed to be goroutine-safe. We
-	// instantiate per-workflow `localLlama` instances below inside each
-	// workflow goroutine when a workflow actually needs it.
+	// Track local_llm runtimes that need to be closed
+	// We need to detect if any workflow uses local_llm to set up tracking
+	needLocalLlama := false
+	for _, wf := range wfs {
+		for _, step := range wf.Steps {
+			if step.Type == "local_llm" {
+				needLocalLlama = true
+				break
+			}
+		}
+		if needLocalLlama {
+			break
+		}
+	}
+	if needLocalLlama {
+		sb.WriteString("    // Track local_llm runtimes for cleanup\n")
+		sb.WriteString("    var localLlamasMu sync.Mutex\n")
+		sb.WriteString("    var localLlamas []*runtime.LocalLlamaRuntime\n")
+	}
 
 	sb.WriteString("\n")
 
@@ -241,6 +190,9 @@ func main() {
 		sb.WriteString("\n")
 		if hasLocal {
 			sb.WriteString("        localLlama := runtime.NewLocalLlamaRuntime()\n")
+			sb.WriteString("        localLlamasMu.Lock()\n")
+			sb.WriteString("        localLlamas = append(localLlamas, localLlama)\n")
+			sb.WriteString("        localLlamasMu.Unlock()\n")
 			sb.WriteString("\n")
 		}
 
@@ -346,6 +298,13 @@ func main() {
 	}
 
 	sb.WriteString("    wg.Wait()\n")
+	// Close local_llm runtimes to shut down worker subprocesses
+	if needLocalLlama {
+		sb.WriteString("    // Close local_llm runtimes (shuts down worker subprocesses)\n")
+		sb.WriteString("    for _, ll := range localLlamas {\n")
+		sb.WriteString("        ll.Close()\n")
+		sb.WriteString("    }\n")
+	}
 	sb.WriteString("    // Dump contexts and channel values as JSON for debugging\n")
 	sb.WriteString("    dump := map[string]interface{}{}\n")
 	sb.WriteString("    dump[\"contexts\"] = contexts\n")
@@ -366,8 +325,8 @@ func main() {
 	sb.WriteString("    signalsMu.Unlock()\n")
 	sb.WriteString("    dump[\"channels\"] = chans\n")
 	sb.WriteString("    b, _ := json.MarshalIndent(dump, \"\", \"  \")\n")
-	sb.WriteString("    exe, _ = os.Executable()\n")
-	sb.WriteString("    exeDir = filepath.Dir(exe)\n")
+	sb.WriteString("    exe, _ := os.Executable()\n")
+	sb.WriteString("    exeDir := filepath.Dir(exe)\n")
 	sb.WriteString("    outPath := filepath.Join(exeDir, \"contexts_and_signals.json\")\n")
 	sb.WriteString("    _ = os.WriteFile(outPath, b, 0644)\n")
 	sb.WriteString("    fmt.Println(\"\\n✅ Workflows completed\")\n")

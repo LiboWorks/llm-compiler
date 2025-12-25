@@ -221,7 +221,8 @@ func (r *TestRunner) RunWorkflow(binaryPath string, timeout time.Duration, env .
 	binDir := filepath.Dir(binaryPath)
 	cmd := exec.CommandContext(ctx, binaryPath)
 	cmd.Dir = binDir
-	cmd.Env = append(os.Environ(), env...)
+	// Disable output capture in subprocess to avoid pipe conflicts with test runner
+	cmd.Env = append(os.Environ(), append(env, "LLMC_NO_CAPTURE=1")...)
 
 	// Capture both stdout and stderr
 	var stdoutBuf, stderrBuf strings.Builder

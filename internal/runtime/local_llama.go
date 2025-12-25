@@ -65,6 +65,19 @@ func (r *LocalLlamaRuntime) LoadModel(filePath string) (*llama.Model, error) {
 	return model, nil
 }
 
+// Close releases resources held by the runtime, including worker clients.
+func (r *LocalLlamaRuntime) Close() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	
+	if r.workerClient != nil {
+		err := r.workerClient.Close()
+		r.workerClient = nil
+		return err
+	}
+	return nil
+}
+
 // Generate runs the model with prompt and returns the completion text.
 // maxTokens controls the number of tokens to generate (0 = use default inside runtime).
 func (r *LocalLlamaRuntime) Generate(prompt string, modelPath string, maxTokens int) (string, error) {
