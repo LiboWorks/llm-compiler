@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -193,6 +194,10 @@ func (r *TestRunner) BuildWorkflow(sourcePath string, binaryName string) (string
 		return "", fmt.Errorf("failed to create binary dir: %w", err)
 	}
 
+	// Add .exe extension on Windows
+	if runtime.GOOS == "windows" {
+		binaryName = binaryName + ".exe"
+	}
 	binPath := filepath.Join(binDir, binaryName)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
