@@ -2,9 +2,9 @@
 
 `llm-compiler` is a Go-based workflow compiler and runtime for running LLM-powered workflows locally. It compiles multi-document YAML workflow definitions into a native Go program that orchestrates shell commands and (optionally) local LLM inference via `llama.cpp`.
 
-Important platform note
------------------------
-This project is currently supported on macOS. Windows is not supported at this time (Linux support is partial and may require manual backend choices for `llama.cpp`).
+Supported platforms
+-------------------
+This project is tested on **macOS**, **Linux (Ubuntu)**, and **Windows**. CI builds and tests run on all three platforms.
 
 Key features
 ------------
@@ -17,21 +17,69 @@ Key features
 
 Quickstart
 ----------
-1. Clone the repo and build (macOS recommended):
+1. Clone the repo:
 
 ```bash
-git clone https://github.com/LiboWorks/llm-compiler.git
+git clone --recurse-submodules https://github.com/LiboWorks/llm-compiler.git
 cd llm-compiler
+```
+
+2. Build llama.cpp (required for `local_llm` steps):
+
+**macOS (Metal backend):**
+```bash
+cd third_party/llama.cpp
+mkdir -p build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=OFF \
+  -DGGML_METAL=ON \
+  -DGGML_BLAS=ON \
+  -DGGML_BLAS_VENDOR=Apple
+cmake --build . --config Release -j$(sysctl -n hw.ncpu)
+cd ../../..
+```
+
+**Linux (Ubuntu, CPU backend):**
+```bash
+cd third_party/llama.cpp
+mkdir -p build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=OFF \
+  -DGGML_METAL=OFF \
+  -DGGML_BLAS=OFF \
+  -DLLAMA_CURL=OFF
+cmake --build . --config Release -j$(nproc)
+cd ../../..
+```
+
+**Windows (CPU backend with MinGW):**
+```powershell
+cd third_party/llama.cpp
+mkdir -p build; cd build
+cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release `
+  -DBUILD_SHARED_LIBS=OFF `
+  -DGGML_METAL=OFF `
+  -DGGML_BLAS=OFF `
+  -DGGML_OPENMP=OFF `
+  -DLLAMA_CURL=OFF `
+  -DLLAMA_BUILD_COMMON=OFF
+cmake --build . --config Release -j $env:NUMBER_OF_PROCESSORS
+cd ../../..
+```
+
+3. Build the project:
+
+```bash
 go build ./...
 ```
 
-2. Compile your workflows (example):
+4. Compile your workflows (example):
 
 ```bash
 go run main.go compile example.yaml -o ./build
 ```
 
-3. Run the generated program:
+5. Run the generated program:
 
 ```bash
 # Run in-process (LLM calls are serialized):
@@ -44,24 +92,6 @@ Notes about concurrency
 -----------------------
 - By default the local LLM runtime serializes C-level `Predict` calls to avoid concurrency issues with the ggml/llama C binding. This means multiple `local_llm` steps will be queued when running in-process.
 - Use `LLMC_SUBPROCESS=1` to enable subprocess workers; each worker is an isolated process that can load models independently and run in parallel.
-
-Prerequisites: `llama.cpp`
----------------------------------
-To use `local_llm` you must initialize the `llama.cpp` submodule and build it locally.
-
-```bash
-# Initialize the submodule
-git submodule update --init --recursive
-
-# Build llama.cpp (macOS with Metal backend)
-cd third_party/llama.cpp
-mkdir -p build && cd build
-cmake .. -DLLAMA_BACKEND=metal -DCMAKE_BUILD_TYPE=Release
-cmake --build . --config Release -j$(sysctl -n hw.ncpu)
-cd ../../..
-```
-
-On Linux choose an appropriate backend (e.g., `-DLLAMA_BACKEND=cpu`).
 
 Building with Pro features
 --------------------------
