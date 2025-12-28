@@ -1,4 +1,4 @@
-name: Platform Build Check
+name: CI
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
 
 jobs:
   ubuntu-cpu:
-    name: Ubuntu (CPU) build
+    name: Ubuntu (CPU)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -51,7 +51,7 @@ jobs:
           go test ./... -v -count=1
 
   macos-metal:
-    name: MacOS (Metal) build
+    name: MacOS (Metal)
     runs-on: macos-latest
     steps:
       - name: Checkout (with submodules)
@@ -93,7 +93,7 @@ jobs:
           go test ./... -v -count=1
 
   windows-cpu:
-    name: Windows (CPU) build
+    name: Windows (CPU)
     runs-on: windows-latest
     steps:
       - name: Checkout (with submodules)

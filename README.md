@@ -2,7 +2,7 @@
 
 ![Go Version](https://img.shields.io/badge/go-1.25+-blue)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
-![CI](https://github.com/LiboWorks/llm-compiler/actions/workflows/platform-build-check.yml/badge.svg)
+![CI](https://github.com/LiboWorks/llm-compiler/actions/workflows/ci.yml/badge.svg)
 
 A Go-based compiler and runtime for integrating small LLMs into systems like CLI tools, agents, and edge deployments.
 
