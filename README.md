@@ -2,7 +2,7 @@
 
 ![Go Version](https://img.shields.io/badge/go-1.25+-blue)
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
-![CI](https://github.com/LiboWorks/llm-compiler/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/LiboWorks/llm-compiler/actions/workflows/platform-build-check.yml/badge.svg)
 
 A Go-based compiler and runtime for integrating small LLMs into systems like CLI tools, agents, and edge deployments.
 
@@ -129,8 +129,7 @@ git commit -m "chore: remove generated artifacts from repo"
 
 How to contribute
 -----------------
-- Open issues for bugs and feature requests.
-- For larger changes, open a draft PR and discuss design before implementing.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on opening issues and submitting pull requests.
 
 Third-Party Dependencies
 ------------------------
@@ -161,4 +160,4 @@ Roadmap
 
 License
 -------
-See the `LICENSE` file at the repository root.
+This project is licensed under the Apache 2.0 License. See [LICENSE](LICENSE) for details.
