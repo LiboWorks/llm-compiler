@@ -1,6 +1,14 @@
 # Contributing
 
-By contributing to this project, you agree that your contributions
-will be licensed under the Apache License, Version 2.0.
+Thanks for your interest!
 
-All contributions must be made via pull requests.
+## Development
+- Go 1.25+
+- `git submodule update --init --recursive`
+
+## Pull Requests
+- One logical change per PR
+- Run `go test ./...` before submitting
+
+By contributing, you agree that your contributions are licensed under
+the Apache License 2.0.

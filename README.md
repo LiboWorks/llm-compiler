@@ -1,6 +1,20 @@
 # llm-compiler
 
-`llm-compiler` is a Go-based workflow compiler and runtime for running LLM-powered workflows locally. It compiles multi-document YAML workflow definitions into a native Go program that orchestrates shell commands and (optionally) local LLM inference via `llama.cpp`.
+![Go Version](https://img.shields.io/badge/go-1.25+-blue)
+![License](https://img.shields.io/badge/license-Apache--2.0-green)
+![CI](https://github.com/LiboWorks/llm-compiler/actions/workflows/ci.yml/badge.svg)
+
+A Go-based compiler and runtime for integrating small LLMs into systems like CLI tools, agents, and edge deployments.
+
+> **Focus:** Local inference, modular backends, and production-oriented design.
+
+`llm-compiler` compiles multi-document YAML workflow definitions into a native Go program that orchestrates shell commands and local LLM inference via `llama.cpp`.
+
+Who is this for?
+----------------
+- **Go developers** working with local or small LLMs
+- **CLI/service builders** embedding LLMs into command-line tools or backend services
+- **Performance-focused developers** who prefer native performance over Python stacks
 
 Supported platforms
 -------------------
@@ -8,12 +22,14 @@ This project is tested on **macOS**, **Linux (Ubuntu)**, and **Windows**. CI bui
 
 Key features
 ------------
-- Compile one or more YAML workflows into a single Go binary that runs workflows concurrently.
-- Cross-workflow synchronization via `wait_for` with optional timeouts and fail-fast error propagation.
-- Shell steps with template substitution using workflow outputs.
-- Local LLM inference via an internal `llama.cpp` binding (`local_llm` step type).
-- Optional subprocess worker mode (`LLMC_SUBPROCESS=1`) for true concurrent model execution.
-- Integration test harness that compiles example workflows and persists outputs for debugging in CI.
+- **Modular LLM backends** – llama.cpp included via submodule; designed for extensibility
+- **Go-first architecture** – Native performance, single binary deployment
+- **CLI integration** – Built with Cobra for seamless command-line workflows
+- **Workflow compilation** – Compile YAML workflows into standalone Go binaries
+- Cross-workflow synchronization via `wait_for` with optional timeouts and fail-fast error propagation
+- Shell steps with template substitution using workflow outputs
+- Optional subprocess worker mode (`LLMC_SUBPROCESS=1`) for true concurrent model execution
+- Integration test harness that compiles example workflows and persists outputs for debugging in CI
 
 Quickstart
 ----------
@@ -126,6 +142,22 @@ This project integrates the following open-source software:
   Copyright (c) 2023–2024 The ggml authors
 
 `llama.cpp` is included as a git submodule and remains under its original license.
+
+Public API Stability
+--------------------
+Only packages under `pkg/` are considered public API.
+
+- Packages under `internal/` are private implementation details
+- CLI behavior may change between minor versions
+- Public APIs may change during `v0.x`, but breaking changes will be documented
+
+Do not depend on non-`pkg/` packages.
+
+Roadmap
+-------
+- [ ] Stable public API
+- [ ] Additional backend support
+- [ ] Example projects
 
 License
 -------
