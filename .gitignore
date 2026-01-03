@@ -12,10 +12,14 @@
 *.so
 *.dylib
 *.test
+/llmc
 
 # Editor directories
 .vscode/
 .idea/
+
+# Copilot instructions (auto-generated)
+.github/copilot-instructions.md
 
 # macOS
 .DS_Store
@@ -33,9 +37,8 @@ contexts_and_signals.json
 fmt_output.txt
 llama_output.txt
 
-# Go build outputs
+# Go workspace cache (GOPATH style, not our pkg/ source directory)
 bin/
-pkg/
 
 # Environment files
 .env

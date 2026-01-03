@@ -24,14 +24,7 @@ jobs:
 
       - name: Build llama.cpp (CPU backend)
         run: |
-          mkdir -p third_party/llama.cpp/build
-          cd third_party/llama.cpp/build
-          cmake .. -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DGGML_METAL=OFF \
-            -DGGML_BLAS=OFF \
-            -DLLAMA_CURL=OFF
-          cmake --build . --config Release -j$(nproc)
+          ./scripts/build-llama.sh --clean
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -66,14 +59,7 @@ jobs:
 
       - name: Build llama.cpp (Metal backend)
         run: |
-          mkdir -p third_party/llama.cpp/build
-          cd third_party/llama.cpp/build
-          cmake .. -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DGGML_METAL=ON \
-            -DGGML_BLAS=ON \
-            -DGGML_BLAS_VENDOR=Apple
-          cmake --build . --config Release -j$(sysctl -n hw.ncpu)
+          ./scripts/build-llama.sh --clean
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -108,17 +94,8 @@ jobs:
 
       - name: Build llama.cpp (CPU backend)
         run: |
-          mkdir -p third_party/llama.cpp/build
-          cd third_party/llama.cpp/build
-          cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release `
-            -DBUILD_SHARED_LIBS=OFF `
-            -DGGML_METAL=OFF `
-            -DGGML_BLAS=OFF `
-            -DGGML_OPENMP=OFF `
-            -DLLAMA_CURL=OFF `
-            -DLLAMA_BUILD_COMMON=OFF
-          cmake --build . --config Release -j $env:NUMBER_OF_PROCESSORS
-        shell: pwsh
+          bash ./scripts/build-llama.sh --clean
+        shell: bash
 
       - name: Set up Go
         uses: actions/setup-go@v4

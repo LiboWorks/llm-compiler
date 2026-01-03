@@ -4,11 +4,9 @@
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 ![CI](https://github.com/LiboWorks/llm-compiler/actions/workflows/ci.yml/badge.svg)
 
-A Go-based compiler and runtime for integrating small LLMs into systems like CLI tools, agents, and edge deployments.
+`llm-compiler` is a Go library and CLI that compiles LLM workflow definitions into standalone binaries with embedded local inference. Use it as a **CLI tool** or as a **Go library** to build CLI tools, local agents, and offline edge deployments.
 
 > **Focus:** Local inference, modular backends, and production-oriented design.
-
-`llm-compiler` compiles multi-document YAML workflow definitions into a native Go program that orchestrates shell commands and local LLM inference via `llama.cpp`.
 
 Who is this for?
 ----------------
@@ -24,7 +22,7 @@ Key features
 ------------
 - **Modular LLM backends** – llama.cpp included via submodule; designed for extensibility
 - **Go-first architecture** – Native performance, single binary deployment
-- **CLI integration** – Built with Cobra for seamless command-line workflows
+- **CLI and library API** – Use the `llmc` CLI or import `pkg/llmc` as a Go library
 - **Workflow compilation** – Compile YAML workflows into standalone Go binaries
 - Cross-workflow synchronization via `wait_for` with optional timeouts and fail-fast error propagation
 - Shell steps with template substitution using workflow outputs
@@ -41,6 +39,25 @@ cd llm-compiler
 ```
 
 2. Build llama.cpp (required for `local_llm` steps):
+
+```bash
+./scripts/build-llama.sh
+```
+
+The script auto-detects your OS and configures the appropriate backend:
+- **macOS**: Metal + Apple BLAS (GPU acceleration)
+- **Linux**: CPU backend (use `--cuda` or `--vulkan` for GPU)
+- **Windows**: CPU backend via MinGW (use `--cuda` or `--vulkan` for GPU)
+
+Options:
+```bash
+./scripts/build-llama.sh --clean    # Clean build
+./scripts/build-llama.sh --cuda     # Enable CUDA (Linux/Windows)
+./scripts/build-llama.sh --vulkan   # Enable Vulkan (Linux/Windows)
+```
+
+<details>
+<summary>Manual build instructions (if script doesn't work)</summary>
 
 **macOS (Metal backend):**
 ```bash
@@ -82,17 +99,18 @@ cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release `
 cmake --build . --config Release -j $env:NUMBER_OF_PROCESSORS
 cd ../../..
 ```
+</details>
 
-3. Build the project:
+3. Build the CLI:
 
 ```bash
-go build ./...
+go build ./cmd/llmc
 ```
 
 4. Compile your workflows (example):
 
 ```bash
-go run main.go compile example.yaml -o ./build
+./llmc compile -i example.yaml -o ./build
 ```
 
 5. Run the generated program:
@@ -104,6 +122,42 @@ go run main.go compile example.yaml -o ./build
 LLMC_SUBPROCESS=1 ./build/workflows
 ```
 
+Go Library API
+--------------
+Use `llm-compiler` programmatically by importing the public API:
+
+```go
+import "github.com/LiboWorks/llm-compiler/pkg/llmc"
+
+// Compile a workflow file to a binary
+result, err := llmc.CompileFile("workflow.yaml", &llmc.CompileOptions{
+    OutputDir: "./build",
+})
+
+// Or load and inspect workflows first
+workflows, err := llmc.LoadWorkflows("workflow.yaml")
+
+// Build workflows programmatically
+wf := llmc.NewWorkflow("my-workflow").
+    AddStep(llmc.LLMStep("analyze", "Analyze these items and summarize: {{items}}").
+		WithModel("gpt-4").
+		WithMaxTokens(1024).
+		WithOutput("analysis").
+		Build())
+```
+
+See `pkg/llmc` for the full API surface.
+
+Public API Stability
+--------------------
+Only packages under `pkg/` are considered public API.
+
+- Packages under `internal/` are private implementation details
+- CLI behavior may change between minor versions
+- Public APIs may change during `v0.x`, but breaking changes will be documented
+
+Do not depend on non-`pkg/` packages.
+
 Notes about concurrency
 -----------------------
 - By default the local LLM runtime serializes C-level `Predict` calls to avoid concurrency issues with the ggml/llama C binding. This means multiple `local_llm` steps will be queued when running in-process.
@@ -112,24 +166,6 @@ Notes about concurrency
 Building with Pro features
 --------------------------
 This repo supports an optional private `pro` module. To build with Pro features locally use a `go.work` or `replace` to make the private module available and build with `-tags pro`.
-
-CI and tests
-------------
-- Run unit and integration (for all fixtures) tests: `go test ./...`
-- For CI, avoid enabling `LLMC_SUBPROCESS=1` unless the runner has sufficient memory for multiple model processes.
-
-Cleanup before pushing
-----------------------
-Remove generated artifacts before committing. The repo's `.gitignore` excludes common generated folders (e.g., `build/`, `testdata/output/`). If you previously committed generated files, remove them from the index first:
-
-```bash
-git rm -r --cached build/ testdata/output/ || true
-git commit -m "chore: remove generated artifacts from repo"
-```
-
-How to contribute
------------------
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on opening issues and submitting pull requests.
 
 Third-Party Dependencies
 ------------------------
@@ -142,22 +178,16 @@ This project integrates the following open-source software:
 
 `llama.cpp` is included as a git submodule and remains under its original license.
 
-Public API Stability
---------------------
-Only packages under `pkg/` are considered public API.
+License
+-------
+This project is licensed under the Apache 2.0 License. See [LICENSE](LICENSE) for details.
 
-- Packages under `internal/` are private implementation details
-- CLI behavior may change between minor versions
-- Public APIs may change during `v0.x`, but breaking changes will be documented
-
-Do not depend on non-`pkg/` packages.
+How to contribute
+-----------------
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on opening issues and submitting pull requests.
 
 Roadmap
 -------
 - [ ] Stable public API
 - [ ] Additional backend support
 - [ ] Example projects
-
-License
--------
-This project is licensed under the Apache 2.0 License. See [LICENSE](LICENSE) for details.

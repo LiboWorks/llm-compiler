@@ -121,68 +121,39 @@ func (r *TestRunner) ListFixtures() ([]TestFixture, error) {
 	return fixtures, nil
 }
 
-// CompileWorkflow compiles a workflow YAML to a Go program
+// CompileWorkflow compiles a workflow YAML to an executable binary
 func (r *TestRunner) CompileWorkflow(fixture TestFixture, outputName string) (string, error) {
 	r.t.Helper()
 
-	outDir := filepath.Join(r.OutputDir, "generated")
-	if err := os.MkdirAll(outDir, 0755); err != nil {
+	binDir := filepath.Join(r.OutputDir, "binaries")
+	if err := os.MkdirAll(binDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create output dir: %w", err)
 	}
 
-	// Record existing files before compilation
-	existingFiles := make(map[string]bool)
-	if files, err := filepath.Glob(filepath.Join(outDir, "*.go")); err == nil {
-		for _, f := range files {
-			existingFiles[f] = true
-		}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "go", "run", "main.go", "compile", fixture.YAMLPath, "-o", outDir)
+	// Use llmc compile which now outputs binary directly
+	cmd := exec.CommandContext(ctx, "go", "run", "./cmd/llmc", "compile", "-i", fixture.YAMLPath, "-o", binDir)
 	cmd.Dir = r.RepoRoot
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("compile failed: %v\noutput: %s", err, string(out))
 	}
 
-	// Find newly generated file (the one that wasn't there before)
-	files, err := filepath.Glob(filepath.Join(outDir, "*.go"))
-	if err != nil {
-		return "", fmt.Errorf("failed to list generated files: %w", err)
+	// The binary name matches the YAML filename (without extension)
+	binaryName := strings.TrimSuffix(filepath.Base(fixture.YAMLPath), ".yaml")
+	if runtime.GOOS == "windows" {
+		binaryName = binaryName + ".exe"
+	}
+	binPath := filepath.Join(binDir, binaryName)
+
+	// Verify binary was created
+	if _, err := os.Stat(binPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("binary not created at %s", binPath)
 	}
 
-	var newFile string
-	for _, f := range files {
-		if !existingFiles[f] {
-			newFile = f
-			break
-		}
-	}
-
-	if newFile == "" {
-		// Fall back to finding the most recently modified file
-		var latestFile string
-		var latestTime time.Time
-		for _, f := range files {
-			info, err := os.Stat(f)
-			if err != nil {
-				continue
-			}
-			if info.ModTime().After(latestTime) {
-				latestTime = info.ModTime()
-				latestFile = f
-			}
-		}
-		if latestFile == "" {
-			return "", fmt.Errorf("no generated files found")
-		}
-		newFile = latestFile
-	}
-
-	return newFile, nil
+	return binPath, nil
 }
 
 // BuildWorkflow builds a compiled Go program
@@ -299,18 +270,14 @@ func (r *TestRunner) RunWorkflow(binaryPath string, timeout time.Duration, env .
 	return result, nil
 }
 
-// CompileAndRun is a convenience method that compiles, builds, and runs a fixture
+// CompileAndRun is a convenience method that compiles and runs a fixture
 func (r *TestRunner) CompileAndRun(fixture TestFixture, timeout time.Duration, env ...string) (*TestResult, error) {
 	r.t.Helper()
 
-	sourcePath, err := r.CompileWorkflow(fixture, fixture.Name)
+	// CompileWorkflow now returns the binary path directly (no separate build step)
+	binaryPath, err := r.CompileWorkflow(fixture, fixture.Name)
 	if err != nil {
 		return nil, fmt.Errorf("compile failed: %w", err)
-	}
-
-	binaryPath, err := r.BuildWorkflow(sourcePath, fixture.Name)
-	if err != nil {
-		return nil, fmt.Errorf("build failed: %w", err)
 	}
 
 	return r.RunWorkflow(binaryPath, timeout, env...)

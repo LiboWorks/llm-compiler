@@ -2,10 +2,9 @@ package generator
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
-	
+
 	"github.com/LiboWorks/llm-compiler/internal/workflow"
 )
 
@@ -333,8 +332,4 @@ func main() {
 	sb.WriteString("}\n")
 
 	return sb.String(), nil
-}
-
-func SaveToFile(output string, program string) error {
-	return os.WriteFile(output, []byte(program), 0644)
 }
