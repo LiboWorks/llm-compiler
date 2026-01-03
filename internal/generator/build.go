@@ -90,6 +90,9 @@ func BuildFromCode(code string, opts *BuildOptions) (*BuildResult, error) {
 
 	// Build binary with output path pointing to user's directory
 	binaryPath := filepath.Join(absOutputDir, opts.OutputName)
+	if runtime.GOOS == "windows" {
+		binaryPath += ".exe"
+	}
 	
 	fmt.Printf("🔨 Building %s...\n", binaryPath)
 	
