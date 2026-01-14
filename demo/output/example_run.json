@@ -1,0 +1,68 @@
+{
+  "channels": {
+    "1_producer.1_1/4_generate_data": {
+      "err": null,
+      "val": "Hello from Producer\n"
+    },
+    "1_producer.1_2/4_check_status": {
+      "err": null,
+      "val": "ready\n"
+    },
+    "1_producer.1_3/4_final_output": {
+      "err": null,
+      "val": "Producer says: Hello from Producer\n | Status: ready\n\n"
+    },
+    "1_producer.1_4/4_prod_summarize": {
+      "err": null,
+      "val": "**Expected result:** \\\"Hello from Producer is ready\\\" (or similar) **Actual result:** (no output, or \\\"Hello from Producer\\\" only) **"
+    },
+    "2_consumer.2_1/3_wait_for_producer": {
+      "err": null,
+      "val": "Consumer received: Producer says: Hello from Producer\n | Status: ready\n\n\n"
+    },
+    "2_consumer.2_2/3_process_data": {
+      "err": null,
+      "val": "Processed: Consumer received: Producer says: Hello from Producer\n | Status: ready\n\n\n\n"
+    },
+    "2_consumer.2_3/3_consumer_insight": {
+      "err": null,
+      "val": "What is one line insight that can be derived from this information? A) The consumer is already aware of the producer's communication. B) The producer is waiting"
+    },
+    "3_conditional.3_1/5_set_mode": {
+      "err": null,
+      "val": "production\n"
+    },
+    "3_conditional.3_2/5_production_action": {
+      "err": null,
+      "val": "Running in PRODUCTION mode\n"
+    },
+    "3_conditional.3_4/5_summary": {
+      "err": null,
+      "val": "Mode=production\n Action=Running in PRODUCTION mode\n\n"
+    },
+    "3_conditional.3_5/5_generate_note": {
+      "err": null,
+      "val": "; ; Run information ; Run=2022-09-07 10:30:00.000000000 ; ; Duration= 0:"
+    }
+  },
+  "contexts": {
+    "1_producer": {
+      "message": "Hello from Producer\n",
+      "producer_result": "Producer says: Hello from Producer\n | Status: ready\n\n",
+      "producer_summary": "**Expected result:** \\\"Hello from Producer is ready\\\" (or similar) **Actual result:** (no output, or \\\"Hello from Producer\\\" only) **",
+      "status": "ready\n"
+    },
+    "2_consumer": {
+      "consumer_insight": "What is one line insight that can be derived from this information? A) The consumer is already aware of the producer's communication. B) The producer is waiting",
+      "consumer_result": "Processed: Consumer received: Producer says: Hello from Producer\n | Status: ready\n\n\n\n",
+      "producer.final_output": "Producer says: Hello from Producer\n | Status: ready\n\n",
+      "received_data": "Consumer received: Producer says: Hello from Producer\n | Status: ready\n\n\n"
+    },
+    "3_conditional": {
+      "action_result": "Running in PRODUCTION mode\n",
+      "mode": "production\n",
+      "note": "; ; Run information ; Run=2022-09-07 10:30:00.000000000 ; ; Duration= 0:",
+      "summary": "Mode=production\n Action=Running in PRODUCTION mode\n\n"
+    }
+  }
+}

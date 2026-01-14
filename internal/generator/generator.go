@@ -4,15 +4,72 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/LiboWorks/llm-compiler/internal/workflow"
 )
 
+// sanitizeIdentifier converts an arbitrary string to a valid Go identifier.
+// Replaces invalid characters (-, /, ., space) with underscores and prefixes
+// with '_' if the name starts with a digit.
+func sanitizeIdentifier(s string) string {
+	s = strings.ReplaceAll(s, "-", "_")
+	s = strings.ReplaceAll(s, "/", "_")
+	s = strings.ReplaceAll(s, ".", "_")
+	s = strings.ReplaceAll(s, " ", "_")
+	if len(s) > 0 && unicode.IsDigit(rune(s[0])) {
+		s = "_" + s
+	}
+	return s
+}
+
+// prefixedWorkflowName returns "a_name" where a is the 1-indexed workflow order.
+func prefixedWorkflowName(wfIdx int, name string) string {
+	return fmt.Sprintf("%d_%s", wfIdx+1, name)
+}
+
+// prefixedStepKey returns "wfKey.a_b/c_stepName" where:
+//   - wfKey = prefixed workflow name
+//   - a = 1-indexed workflow order
+//   - b = 1-indexed step order within workflow
+//   - c = total steps in the workflow
+func prefixedStepKey(wfKey string, wfIdx int, stepIdx int, totalSteps int, stepName string) string {
+	return fmt.Sprintf("%s.%d_%d/%d_%s", wfKey, wfIdx+1, stepIdx+1, totalSteps, stepName)
+}
+
+// GenerateOptions configures code generation.
+type GenerateOptions struct {
+	// OutputName is used for the JSON output filename (e.g., "example" -> "example_run.json")
+	// If empty, defaults to "contexts_and_signals"
+	OutputName string
+}
+
 // Generate builds a single Go program that runs one or more workflows in
 // parallel. Workflows may coordinate via step-level `wait_for` values that
 // reference `workflowName.stepName` keys.
-func Generate(wfs []workflow.Workflow) (string, error) {
+func Generate(wfs []workflow.Workflow, opts *GenerateOptions) (string, error) {
+	if opts == nil {
+		opts = &GenerateOptions{}
+	}
+	jsonOutputName := "contexts_and_signals.json"
+	if opts.OutputName != "" {
+		jsonOutputName = opts.OutputName + "_run.json"
+	}
+
 	var sb strings.Builder
+
+	// Build a mapping from original "workflow.step" keys to prefixed keys
+	// so that wait_for references can be resolved.
+	stepKeyMap := make(map[string]string)
+	for wfIdx, wf := range wfs {
+		wfKey := prefixedWorkflowName(wfIdx, wf.Name)
+		totalSteps := len(wf.Steps)
+		for stepIdx, step := range wf.Steps {
+			originalKey := wf.Name + "." + step.Name
+			prefixedKey := prefixedStepKey(wfKey, wfIdx, stepIdx, totalSteps, step.Name)
+			stepKeyMap[originalKey] = prefixedKey
+		}
+	}
 
 	// Pre-scan to determine which imports are needed
 	needLog := false
@@ -68,6 +125,9 @@ func main() {
 	type signalMsg struct { Val string; Err string }
 	signals := make(map[string]chan signalMsg)
 	var signalsMu sync.Mutex
+	// signalValues stores the last sent value for each signal key for JSON dump
+	// (channels may be consumed by wait_for before dump runs)
+	signalValues := make(map[string]signalMsg)
 	mk := func(k string) chan signalMsg {
 		signalsMu.Lock()
 		ch, ok := signals[k]
@@ -77,6 +137,13 @@ func main() {
 		}
 		signalsMu.Unlock()
 		return ch
+	}
+	// send stores the value and sends to channel
+	send := func(k string, msg signalMsg) {
+		signalsMu.Lock()
+		signalValues[k] = msg
+		signalsMu.Unlock()
+		select { case mk(k) <- msg: default: }
 	}
 
 	// contexts collects the final ctx.Vars for each workflow so we can
@@ -152,7 +219,9 @@ func main() {
 	sb.WriteString("\n")
 
 	// Launch each workflow in its own goroutine
-	for _, wf := range wfs {
+	for wfIdx, wf := range wfs {
+		totalSteps := len(wf.Steps)
+		wfKey := prefixedWorkflowName(wfIdx, wf.Name)
 		// detect per-workflow needs to avoid declaring unused variables
 		hasShell := false
 		hasLLM := false
@@ -195,28 +264,37 @@ func main() {
 			sb.WriteString("\n")
 		}
 
-		for _, step := range wf.Steps {
+		for stepIdx, step := range wf.Steps {
+			stepKey := prefixedStepKey(wfKey, wfIdx, stepIdx, totalSteps, step.Name)
 			sb.WriteString(fmt.Sprintf("        // Step: %s\n", step.Name))
 
 			// Wait-for handling
 			if step.WaitFor != "" {
-				keyQ := strconv.Quote(step.WaitFor)
+				// Resolve the wait_for reference to its prefixed key
+				waitForKey := step.WaitFor
+				if mapped, ok := stepKeyMap[step.WaitFor]; ok {
+					waitForKey = mapped
+				}
+				keyQ := strconv.Quote(waitForKey)
+				// Store the received value with the original wait_for key so the user
+				// can access it via {{producer.final_output}} (the key they wrote in YAML)
+				originalKeyQ := strconv.Quote(step.WaitFor)
 				if step.WaitTimeout > 0 {
 					sb.WriteString("        select {\n")
 					sb.WriteString("            case msg := <-mk(" + keyQ + "):\n")
 					sb.WriteString("                if msg.Err != \"\" {\n")
 					sb.WriteString("                    log.Fatalf(\"producer %s failed: %s\", " + keyQ + ", msg.Err)\n")
 					sb.WriteString("                }\n")
-					sb.WriteString("                ctx.Set(" + keyQ + ", msg.Val)\n")
+					sb.WriteString("                ctx.Set(" + originalKeyQ + ", msg.Val)\n")
 					sb.WriteString("            case <-time.After(" + strconv.Itoa(step.WaitTimeout) + " * time.Second):\n")
-					sb.WriteString("                log.Fatalf(\"wait_for timed out waiting for " + step.WaitFor + "\")\n")
+					sb.WriteString("                log.Fatalf(\"wait_for timed out waiting for " + waitForKey + "\")\n")
 					sb.WriteString("        }\n")
 				} else {
 					sb.WriteString("        msg := <-mk(" + keyQ + ")\n")
 					sb.WriteString("        if msg.Err != \"\" {\n")
 					sb.WriteString("            log.Fatalf(\"producer %s failed: %s\", " + keyQ + ", msg.Err)\n")
 					sb.WriteString("        }\n")
-					sb.WriteString("        ctx.Set(" + keyQ + ", msg.Val)\n")
+					sb.WriteString("        ctx.Set(" + originalKeyQ + ", msg.Val)\n")
 				}
 			}
 
@@ -231,16 +309,16 @@ func main() {
 				if step.Output != "" {
 					sb.WriteString("            out, err = shell.Run(cmd)\n")
 					sb.WriteString("            if err != nil {\n")
-					sb.WriteString(fmt.Sprintf("                select { case mk(%q) <- signalMsg{Err: err.Error()}: default: }\n", wf.Name+"."+step.Name))
+					sb.WriteString(fmt.Sprintf("                send(%q, signalMsg{Err: err.Error()})\n", stepKey))
 					sb.WriteString("                return\n")
 					sb.WriteString("            }\n")
 					sb.WriteString(fmt.Sprintf("            ctx.Set(%q, out)\n", step.Output))
 					// send to signals
-					sb.WriteString(fmt.Sprintf("            select { case mk(%q) <- signalMsg{Val: out}: default: }\n", wf.Name+"."+step.Name))
+					sb.WriteString(fmt.Sprintf("            send(%q, signalMsg{Val: out})\n", stepKey))
 				} else {
 					sb.WriteString("            out, err = shell.Run(cmd)\n")
 					sb.WriteString("            if err != nil {\n")
-					sb.WriteString(fmt.Sprintf("                select { case mk(%q) <- signalMsg{Err: err.Error()}: default: }\n", wf.Name+"."+step.Name))
+					sb.WriteString(fmt.Sprintf("                send(%q, signalMsg{Err: err.Error()})\n", stepKey))
 					sb.WriteString("                return\n")
 					sb.WriteString("            }\n")
 					sb.WriteString("            if len(out) > 0 {\n")
@@ -265,23 +343,19 @@ func main() {
 				// contain backticks). Use a sanitized variable name per step and
 				// render it with `runtime.RenderTemplate` at runtime using the
 				// workflow `ctx.Vars` so earlier step outputs are substituted.
-				varName := fmt.Sprintf("prompt_%s_%s", wf.Name, step.Name)
-				// sanitize common characters
-				varName = strings.ReplaceAll(varName, "-", "_")
-				varName = strings.ReplaceAll(varName, ".", "_")
-				varName = strings.ReplaceAll(varName, " ", "_")
+				varName := sanitizeIdentifier(fmt.Sprintf("prompt_%s_%s", wf.Name, step.Name))
 				sb.WriteString(fmt.Sprintf("            %s := `%s`\n", varName, step.Prompt))
 				rendered := varName + "_rendered"
 				sb.WriteString(fmt.Sprintf("            %s, _ := runtime.RenderTemplate(%s, ctx.Vars)\n", rendered, varName))
 				qModel := strconv.Quote(step.Model)
 				sb.WriteString(fmt.Sprintf("            result, err = %s.Generate(%s, %s, maxTokens)\n", runtimeVar, rendered, qModel))
 				sb.WriteString("            if err != nil {\n")
-				sb.WriteString(fmt.Sprintf("                select { case mk(%q) <- signalMsg{Err: err.Error()}: default: }\n", wf.Name+"."+step.Name))
+				sb.WriteString(fmt.Sprintf("                send(%q, signalMsg{Err: err.Error()})\n", stepKey))
 				sb.WriteString("                return\n")
 				sb.WriteString("            }\n")
 				if step.Output != "" {
 					sb.WriteString(fmt.Sprintf("            out = runtime.SanitizeForShell(result)\n            ctx.Set(%q, out)\n", step.Output))
-					sb.WriteString(fmt.Sprintf("            select { case mk(%q) <- signalMsg{Val: out}: default: }\n", wf.Name+"."+step.Name))
+					sb.WriteString(fmt.Sprintf("            send(%q, signalMsg{Val: out})\n", stepKey))
 				}
 			}
 
@@ -292,7 +366,7 @@ func main() {
 			sb.WriteString("\n")
 		}
 
-		sb.WriteString(fmt.Sprintf("            contextsMu.Lock()\n            contexts[%q] = ctx.Vars\n            contextsMu.Unlock()\n", wf.Name))
+		sb.WriteString(fmt.Sprintf("            contextsMu.Lock()\n            contexts[%q] = ctx.Vars\n            contextsMu.Unlock()\n", wfKey))
 		sb.WriteString("    }()\n\n")
 	}
 
@@ -307,18 +381,12 @@ func main() {
 	sb.WriteString("    // Dump contexts and channel values as JSON for debugging\n")
 	sb.WriteString("    dump := map[string]interface{}{}\n")
 	sb.WriteString("    dump[\"contexts\"] = contexts\n")
-	sb.WriteString("    chans := make(map[string]map[string]string)\n")
+	sb.WriteString("    chans := make(map[string]map[string]interface{})\n")
 	sb.WriteString("    signalsMu.Lock()\n")
-	sb.WriteString("    for k, ch := range signals {\n")
-	sb.WriteString("        m := map[string]string{}\n")
-	sb.WriteString("        select {\n")
-	sb.WriteString("        case msg := <-ch:\n")
-	sb.WriteString("            m[\"val\"] = msg.Val\n")
-	sb.WriteString("            m[\"err\"] = msg.Err\n")
-	sb.WriteString("        default:\n")
-	sb.WriteString("            m[\"val\"] = \"\"\n")
-	sb.WriteString("            m[\"err\"] = \"\"\n")
-	sb.WriteString("        }\n")
+	sb.WriteString("    for k, msg := range signalValues {\n")
+	sb.WriteString("        m := map[string]interface{}{}\n")
+	sb.WriteString("        m[\"val\"] = msg.Val\n")
+	sb.WriteString("        if msg.Err == \"\" { m[\"err\"] = nil } else { m[\"err\"] = msg.Err }\n")
 	sb.WriteString("        chans[k] = m\n")
 	sb.WriteString("    }\n")
 	sb.WriteString("    signalsMu.Unlock()\n")
@@ -326,7 +394,7 @@ func main() {
 	sb.WriteString("    b, _ := json.MarshalIndent(dump, \"\", \"  \")\n")
 	sb.WriteString("    exe, _ := os.Executable()\n")
 	sb.WriteString("    exeDir := filepath.Dir(exe)\n")
-	sb.WriteString("    outPath := filepath.Join(exeDir, \"contexts_and_signals.json\")\n")
+	sb.WriteString(fmt.Sprintf("    outPath := filepath.Join(exeDir, %q)\n", jsonOutputName))
 	sb.WriteString("    _ = os.WriteFile(outPath, b, 0644)\n")
 	sb.WriteString("    fmt.Println(\"\\n✅ Workflows completed\")\n")
 	sb.WriteString("}\n")

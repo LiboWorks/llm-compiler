@@ -24,7 +24,7 @@ func TestGenerateShellWorkflow(t *testing.T) {
 		},
 	}
 
-	code, err := Generate(wfs)
+	code, err := Generate(wfs, nil)
 	if err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
@@ -59,7 +59,7 @@ func TestGenerateMultipleWorkflows(t *testing.T) {
 		},
 	}
 
-	code, err := Generate(wfs)
+	code, err := Generate(wfs, nil)
 	if err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
@@ -100,13 +100,13 @@ func TestGenerateWithWaitFor(t *testing.T) {
 		},
 	}
 
-	code, err := Generate(wfs)
+	code, err := Generate(wfs, nil)
 	if err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
 
-	// Check for wait_for handling
-	if !strings.Contains(code, `mk("producer.produce")`) {
+	// Check for wait_for handling (allow prefixed signal names)
+	if !strings.Contains(code, "producer.produce") {
 		t.Error("missing signal key for producer.produce")
 	}
 
@@ -131,7 +131,7 @@ func TestGenerateWithConditional(t *testing.T) {
 		},
 	}
 
-	code, err := Generate(wfs)
+	code, err := Generate(wfs, nil)
 	if err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
@@ -180,7 +180,7 @@ func TestGenerateLLMWorkflow(t *testing.T) {
 		},
 	}
 
-	code, err := Generate(wfs)
+	code, err := Generate(wfs, nil)
 	if err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
@@ -208,7 +208,7 @@ func TestGenerateLocalLLMWorkflow(t *testing.T) {
 		},
 	}
 
-	code, err := Generate(wfs)
+	code, err := Generate(wfs, nil)
 	if err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}

@@ -37,7 +37,7 @@ steps:
   # Optional LLM step: set `model` to a GGUF path to enable
   - name: prod_summarize
     type: local_llm
-    model: /path/to/your/model.gguf
+    model: /Users/libochen/Downloads/meta-llama-3-8b-instruct.Q4_K_M.gguf
     prompt: |
       Summarize the following producer result in one short line:
       {{producer_result}}
@@ -66,7 +66,7 @@ steps:
   # Optional LLM step for consumer insight
   - name: consumer_insight
     type: local_llm
-    model: /path/to/your/model.gguf
+    model: /Users/libochen/Downloads/meta-llama-3-8b-instruct.Q4_K_M.gguf
     prompt: 'Provide a one-line insight based on: {{consumer_result}}'
     max_tokens: 32
     output: consumer_insight
@@ -104,7 +104,7 @@ steps:
   # Optional conditional workflow LLM note
   - name: generate_note
     type: local_llm
-    model: /path/to/your/model.gguf
+    model: /Users/libochen/Downloads/meta-llama-3-8b-instruct.Q4_K_M.gguf
     prompt: |
       Write a very short note about the run:
       Mode={{mode}}; Action={{action_result}}

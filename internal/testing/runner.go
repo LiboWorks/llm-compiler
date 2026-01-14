@@ -221,8 +221,10 @@ func (r *TestRunner) RunWorkflow(binaryPath string, timeout time.Duration, env .
 		}
 	}
 
-	// Load contexts and signals
-	jsonPath := filepath.Join(binDir, "contexts_and_signals.json")
+	// Load contexts and signals - JSON filename matches binary name
+	binName := filepath.Base(binaryPath)
+	binName = strings.TrimSuffix(binName, filepath.Ext(binName)) // Remove .exe on Windows
+	jsonPath := filepath.Join(binDir, binName+"_run.json")
 	if data, err := os.ReadFile(jsonPath); err == nil {
 		var dump map[string]interface{}
 		if json.Unmarshal(data, &dump) == nil {
@@ -236,6 +238,24 @@ func (r *TestRunner) RunWorkflow(binaryPath string, timeout time.Duration, env .
 								result.Contexts[k][kk] = s
 							}
 						}
+
+						// Also expose unprefixed key (e.g., "1_name" -> "name") for tests
+						if idx := strings.Index(k, "_"); idx > 0 {
+							prefix := k[:idx]
+							isNum := true
+							for _, r := range prefix {
+								if r < '0' || r > '9' {
+									isNum = false
+									break
+								}
+							}
+							if isNum {
+								unpref := k[idx+1:]
+								if _, exists := result.Contexts[unpref]; !exists {
+									result.Contexts[unpref] = result.Contexts[k]
+								}
+							}
+						}
 					}
 				}
 			}
@@ -247,6 +267,24 @@ func (r *TestRunner) RunWorkflow(binaryPath string, timeout time.Duration, env .
 						for kk, vv := range vm {
 							if s, ok := vv.(string); ok {
 								result.Signals[k][kk] = s
+							}
+						}
+
+						// Also expose unprefixed signal keys
+						if idx := strings.Index(k, "_"); idx > 0 {
+							prefix := k[:idx]
+							isNum := true
+							for _, r := range prefix {
+								if r < '0' || r > '9' {
+									isNum = false
+									break
+								}
+							}
+							if isNum {
+								unpref := k[idx+1:]
+								if _, exists := result.Signals[unpref]; !exists {
+									result.Signals[unpref] = result.Signals[k]
+								}
 							}
 						}
 					}

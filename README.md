@@ -4,15 +4,50 @@
 ![License](https://img.shields.io/badge/license-Apache--2.0-green)
 ![CI](https://github.com/LiboWorks/llm-compiler/actions/workflows/ci.yml/badge.svg)
 
-`llm-compiler` is a Go library and CLI that compiles LLM workflow definitions into standalone binaries with embedded local inference. Use it as a **CLI tool** or as a **Go library** to build CLI tools, local agents, and offline edge deployments.
+**Compile LLM workflows into explicit, deterministic execution graphs.**
 
-> **Focus:** Local inference, modular backends, and production-oriented design.
+`llm-compiler` turns LLM-driven workflows into inspectable, testable, and versionable artifacts — so LLM behavior can be treated like real code, not hidden magic.
+
+Why this exists
+---------------
+Most LLM applications today suffer from the same problems:
+- Execution order is implicit
+- Control flow is buried in prompts and glue code
+- Failures are hard to reproduce
+- Behavior drifts silently over time
+- **Your data leaves your machine** — cloud APIs mean your prompts and outputs travel through third-party servers
+
+When something breaks, you guess. When data leaks, you don't even know.
+
+**llm-compiler makes LLM workflows explicit — and keeps them local.**
+
+Instead of opaque prompt chains hitting remote APIs, you get a compiled execution plan that runs entirely on your hardware:
+- **Inspect** — see exactly what runs and in what order
+- **Diff** — understand what changed between versions
+- **Test** — write assertions against deterministic behavior
+- **Version** — track workflow changes like code
+- **Reason about** — debug failures with clear execution traces
+- **Keep data private** — no API calls, no telemetry, no data leaves your machine
+
+This shifts LLM workflows from runtime improvisation to compile-time reasoning — with full local execution and zero data leakage.
+
+Status
+------
+This project is early-stage and evolving. The core ideas are stable:
+- Explicit workflows
+- Deterministic compilation
+- Inspectable artifacts
+
+Expect APIs to change before v1.0.
 
 Who is this for?
 ----------------
-- **Go developers** working with local or small LLMs
-- **CLI/service builders** embedding LLMs into command-line tools or backend services
-- **Performance-focused developers** who prefer native performance over Python stacks
+- **Go developers** building LLM-powered systems
+- **Engineers** who care about determinism and debuggability
+- **Teams** tired of prompt spaghetti and invisible logic
+- **Anyone** who wants LLM workflows to behave like software
+
+It is **not** a no-code tool or a prompt playground.
 
 Supported platforms
 -------------------
@@ -20,14 +55,16 @@ This project is tested on **macOS**, **Linux (Ubuntu)**, and **Windows**. CI bui
 
 Key features
 ------------
-- **Modular LLM backends** – llama.cpp included via submodule; designed for extensibility
+- **100% local execution** – Your data never leaves your machine. No API calls, no cloud dependencies
+- **Explicit execution graphs** – See exactly what runs and in what order
+- **Deterministic compilation** – Same input → same output, every time
+- **Inspectable artifacts** – Debug with clear execution traces and JSON output
+- **Modular LLM backends** – llama.cpp included; designed for extensibility
 - **Go-first architecture** – Native performance, single binary deployment
-- **CLI and library API** – Use the `llmc` CLI or import `pkg/llmc` as a Go library
-- **Workflow compilation** – Compile YAML workflows into standalone Go binaries
-- Cross-workflow synchronization via `wait_for` with optional timeouts and fail-fast error propagation
+- **CLI and library API** – Use `llmc` CLI or import `pkg/llmc` as a Go library
+- Cross-workflow synchronization via `wait_for` with optional timeouts
 - Shell steps with template substitution using workflow outputs
-- Optional subprocess worker mode (`LLMC_SUBPROCESS=1`) for true concurrent model execution
-- Integration test harness that compiles example workflows and persists outputs for debugging in CI
+- Optional subprocess worker mode for concurrent model execution
 
 Quickstart
 ----------
@@ -49,78 +86,14 @@ The script auto-detects your OS and configures the appropriate backend:
 - **Linux**: CPU backend (use `--cuda` or `--vulkan` for GPU)
 - **Windows**: CPU backend via MinGW (use `--cuda` or `--vulkan` for GPU)
 
-Options:
-```bash
-./scripts/build-llama.sh --clean    # Clean build
-./scripts/build-llama.sh --cuda     # Enable CUDA (Linux/Windows)
-./scripts/build-llama.sh --vulkan   # Enable Vulkan (Linux/Windows)
-```
-
-<details>
-<summary>Manual build instructions (if script doesn't work)</summary>
-
-**macOS (Metal backend):**
-```bash
-cd third_party/llama.cpp
-mkdir -p build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release \
-  -DBUILD_SHARED_LIBS=OFF \
-  -DGGML_METAL=ON \
-  -DGGML_BLAS=ON \
-  -DGGML_BLAS_VENDOR=Apple
-cmake --build . --config Release -j$(sysctl -n hw.ncpu)
-cd ../../..
-```
-
-**Linux (Ubuntu, CPU backend):**
-```bash
-cd third_party/llama.cpp
-mkdir -p build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release \
-  -DBUILD_SHARED_LIBS=OFF \
-  -DGGML_METAL=OFF \
-  -DGGML_BLAS=OFF \
-  -DLLAMA_CURL=OFF
-cmake --build . --config Release -j$(nproc)
-cd ../../..
-```
-
-**Windows (CPU backend with MinGW):**
-```powershell
-cd third_party/llama.cpp
-mkdir -p build; cd build
-cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release `
-  -DBUILD_SHARED_LIBS=OFF `
-  -DGGML_METAL=OFF `
-  -DGGML_BLAS=OFF `
-  -DGGML_OPENMP=OFF `
-  -DLLAMA_CURL=OFF `
-  -DLLAMA_BUILD_COMMON=OFF
-cmake --build . --config Release -j $env:NUMBER_OF_PROCESSORS
-cd ../../..
-```
-</details>
-
-3. Build the CLI:
+3. Build the CLI and run the demo:
 
 ```bash
 go build ./cmd/llmc
+cd demo && ./run-demo.sh
 ```
 
-4. Compile your workflows (example):
-
-```bash
-./llmc compile -i example.yaml -o ./build
-```
-
-5. Run the generated program:
-
-```bash
-# Run in-process (LLM calls are serialized):
-./build/workflows
-# Or run with subprocess workers for true concurrency:
-LLMC_SUBPROCESS=1 ./build/workflows
-```
+📖 **See [demo/README.md](demo/README.md) for a complete walkthrough** with detailed explanations of the output JSON, workflow features, and how channels/contexts work together.
 
 Go Library API
 --------------
@@ -158,11 +131,6 @@ Only packages under `pkg/` are considered public API.
 
 Do not depend on non-`pkg/` packages.
 
-Notes about concurrency
------------------------
-- By default the local LLM runtime serializes C-level `Predict` calls to avoid concurrency issues with the ggml/llama C binding. This means multiple `local_llm` steps will be queued when running in-process.
-- Use `LLMC_SUBPROCESS=1` to enable subprocess workers; each worker is an isolated process that can load models independently and run in parallel.
-
 Building with Pro features
 --------------------------
 This repo supports an optional private `pro` module. To build with Pro features locally use a `go.work` or `replace` to make the private module available and build with `-tags pro`.
@@ -174,7 +142,6 @@ This project integrates the following open-source software:
 - **llama.cpp**  
   https://github.com/ggml-org/llama.cpp  
   Licensed under the MIT License  
-  Copyright (c) 2023–2024 The ggml authors
 
 `llama.cpp` is included as a git submodule and remains under its original license.
 
@@ -184,6 +151,11 @@ This project is licensed under the Apache 2.0 License. See [LICENSE](LICENSE) fo
 
 How to contribute
 -----------------
+Contributions are welcome, especially around:
+- Workflow semantics
+- Execution graph formats
+- Testing strategies for LLM workflows
+
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on opening issues and submitting pull requests.
 
 Roadmap

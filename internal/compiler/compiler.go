@@ -81,7 +81,9 @@ func CompileFile(inputPath string, opts *Options) (*Result, error) {
 	}
 
 	// Generate code
-	code, err := generator.Generate(wfs)
+	code, err := generator.Generate(wfs, &generator.GenerateOptions{
+		OutputName: outputName,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("code generation failed: %w", err)
 	}
@@ -144,7 +146,9 @@ func Compile(wfs []workflow.Workflow, opts *Options) (*Result, error) {
 	}
 
 	// Generate code
-	code, err := generator.Generate(wfs)
+	code, err := generator.Generate(wfs, &generator.GenerateOptions{
+		OutputName: opts.OutputName,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("code generation failed: %w", err)
 	}
