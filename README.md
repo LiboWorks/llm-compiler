@@ -58,7 +58,7 @@ Key features
 - **100% local execution** – Your data never leaves your machine. No API calls, no cloud dependencies
 - **Explicit execution graphs** – See exactly what runs and in what order
 - **Deterministic compilation** – Same input → same output, every time
-- **Inspectable artifacts** – Debug with clear execution traces and JSON output
+- **Inspectable artifacts** – Debug with clear execution traces and [JSON output](demo/output/example_run.json)
 - **Modular LLM backends** – llama.cpp included; designed for extensibility
 - **Go-first architecture** – Native performance, single binary deployment
 - **CLI and library API** – Use `llmc` CLI or import `pkg/llmc` as a Go library

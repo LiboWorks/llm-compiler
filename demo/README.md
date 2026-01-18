@@ -34,10 +34,10 @@ cd demo
 
 | File | Description |
 |------|-------------|
-| `example.yaml` | Source workflow definition with 3 parallel workflows |
-| `output/example.go` | Generated Go source code (with `--keep-source`) |
-| `output/example_run.json` | Runtime output with contexts, channels, and step results |
-| `run-demo.sh` | Helper script to compile and run the demo |
+| [example.yaml](example.yaml) | Source workflow definition with 3 parallel workflows |
+| [output/example.go](output/example.go) | Generated Go source code (with `--keep-source`) |
+| [output/example_run.json](output/example_run.json) | Runtime output with contexts, channels, and step results |
+| [run-demo.sh](run-demo.sh) | Helper script to compile and run the demo |
 
 ---
 
